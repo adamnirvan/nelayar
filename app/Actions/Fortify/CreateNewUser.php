@@ -29,13 +29,15 @@ class CreateNewUser implements CreatesNewUsers
         Validator::make($input, [
             ...$this->profileRules(),
             'password' => $this->passwordRules(),
+            'role' => ['required', 'in:nelayan,pembeli'],
         ])->validate();
 
         return DB::transaction(function () use ($input) {
             $user = User::create([
-                'name' => $input['name'],
-                'email' => $input['email'],
+                'name'     => $input['name'],
+                'email'    => $input['email'],
                 'password' => $input['password'],
+                'role'     => $input['role'],
             ]);
 
             $this->createTeam->handle($user, $user->name."'s Team", isPersonal: true);
