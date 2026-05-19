@@ -2,26 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ZppiForecast;
+use App\Services\OceanService;
 use Illuminate\Http\Request;
 use Inertia\Response;
 
 class MapController extends Controller
 {
-    public function index(): Response
+    public function index(OceanService $ocean): Response
     {
-        // Implemented in Phase 3 — wired to OceanService
         return inertia('Map/Index', [
-            'zppiGeoJson' => ['type' => 'FeatureCollection', 'features' => []],
+            'zppiGeoJson' => $ocean->getTodayGeoJson(),
         ]);
     }
 
-    public function forecast(Request $request): Response
+    public function forecast(Request $request, OceanService $ocean): Response
     {
-        // Implemented in Phase 4 — wired to OceanService::getForecastGeoJson()
+        $date = $request->query('date', now()->addDay()->toDateString());
+
+        $dates = ZppiForecast::select('forecast_date')
+            ->distinct()
+            ->orderBy('forecast_date')
+            ->pluck('forecast_date')
+            ->map(fn($d) => $d->toDateString())
+            ->toArray();
+
         return inertia('Map/Forecast', [
-            'forecastDates' => [],
-            'selectedDate'  => $request->query('date', now()->addDay()->toDateString()),
-            'zppiGeoJson'   => ['type' => 'FeatureCollection', 'features' => []],
+            'forecastDates' => $dates,
+            'selectedDate'  => $date,
+            'zppiGeoJson'   => $ocean->getForecastGeoJson($date),
         ]);
     }
 }
