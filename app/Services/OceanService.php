@@ -78,6 +78,76 @@ class OceanService
         }
     }
 
+    public function fetchAndStoreForecast(string $baseDate): void
+    {
+        $pythonPath = env('PYTHON_PATH', 'python3');
+        $scriptPath = base_path('microservice/parse_forecast.py');
+
+        $result = Process::run(
+            "{$pythonPath} {$scriptPath} --date {$baseDate}"
+        );
+
+        if ($result->failed()) {
+            Log::error('Forecast parse failed', [
+                'date'  => $baseDate,
+                'error' => $result->errorOutput(),
+            ]);
+            return;
+        }
+
+        $entries = json_decode($result->output(), true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($entries)) {
+            Log::error('Forecast parse returned invalid JSON', [
+                'date'   => $baseDate,
+                'output' => $result->output(),
+            ]);
+            return;
+        }
+
+        // One OceanData record anchors the entire 10-day run
+        $oceanData = OceanData::create([
+            'data_date'  => $baseDate,
+            'source'     => 'CMEMS-forecast',
+            'fetched_at' => now(),
+        ]);
+
+        foreach ($entries as $entry) {
+            if (isset($entry['error'])) {
+                Log::warning('Forecast entry error', [
+                    'day_offset'    => $entry['day_offset'],
+                    'forecast_date' => $entry['forecast_date'],
+                    'error'         => $entry['error'],
+                ]);
+            }
+
+            $features = $entry['geojson']['features'] ?? [];
+
+            if (empty($features)) {
+                continue;
+            }
+
+            foreach ($features as $feature) {
+                $geom = $feature['geometry'] ?? null;
+                if (! $geom) {
+                    continue;
+                }
+
+                DB::statement("
+                    INSERT INTO zppi_forecast
+                        (ocean_data_id, forecast_date, day_offset, confidence, geom, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ST_GeomFromGeoJSON(?), now(), now())
+                ", [
+                    $oceanData->id,
+                    $entry['forecast_date'],
+                    $entry['day_offset'],
+                    $entry['confidence'],
+                    json_encode($geom),
+                ]);
+            }
+        }
+    }
+
     public function getTodayGeoJson(): array
     {
         $rows = DB::select("

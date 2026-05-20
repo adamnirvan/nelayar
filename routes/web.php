@@ -14,7 +14,7 @@ Route::middleware(['auth'])->group(function () {
 
 // Protected app routes
 Route::middleware(['auth'])->group(function () {
-    Route::redirect('/', '/map');
+    Route::redirect('/', '/map')->name('home');
 
     Route::get('/map',          [MapController::class, 'index'])->name('map.index');
     Route::get('/map/forecast', [MapController::class, 'forecast'])->name('map.forecast');

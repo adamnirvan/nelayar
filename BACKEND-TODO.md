@@ -650,26 +650,32 @@ Route::middleware('auth')->group(function () {
 
 > **Note for frontend dev:** Register page now receives `roles: ['nelayan', 'pembeli']` prop — add a select/radio for it.
 
-### Phase 3 — ZPPI core (most critical)
-- [ ] Create `OceanService` with `fetchAndStore()` and `getTodayGeoJson()`
-- [ ] Create `FetchOceanData` Artisan command
-- [ ] Test command manually: `php artisan nelayar:fetch-ocean`
-- [ ] Wire `MapController::index()` to `OceanService::getTodayGeoJson()`
-- [ ] Verify GeoJSON returned is valid (paste into geojson.io to check)
-- [ ] **Checkpoint:** `/map` loads and passes non-empty GeoJSON to frontend
+### Phase 3 — ZPPI core (most critical) ✅
+- [x] Create `OceanService` with `fetchAndStore()` and `getTodayGeoJson()` (`app/Services/OceanService.php`)
+- [x] Create `FetchOceanData` Artisan command (`app/Console/Commands/FetchOceanData.php`, sig: `nelayar:fetch-ocean`)
+- [ ] Test command manually: `php artisan nelayar:fetch-ocean` — **do manually after CMEMS creds + Python venv are set**
+- [x] Wire `MapController::index()` to `OceanService::getTodayGeoJson()`
+- [ ] Verify GeoJSON returned is valid (paste into geojson.io to check) — **do manually**
+- [ ] **Checkpoint:** `/map` loads and passes non-empty GeoJSON to frontend — **do manually**
 
-### Phase 4 — Forecast
-- [ ] Create `FetchForecast` Artisan command
-- [ ] Extend `OceanService` with `getForecastGeoJson(string $date)`
-- [ ] Wire `MapController::forecast()` to `OceanService::getForecastGeoJson()`
-- [ ] **Checkpoint:** `GET /map/forecast?date=2026-05-17` returns correct GeoJSON
+> **Note:** `OceanData`, `ZppiZone`, `ZppiForecast` models also created. `OceanService::getForecastGeoJson()` implemented early (used by Phase 4). `MapController::forecast()` also wired to `OceanService` ahead of Phase 4.
 
-### Phase 5 — Weather
-- [ ] Create `WeatherService` with BMKG fetch + Open-Meteo fallback
-- [ ] Inspect BMKG API response shape — normalize to page props contract
-- [ ] Wire `WeatherController::index()` to `WeatherService`
-- [ ] Test fallback: temporarily break BMKG URL, confirm Open-Meteo kicks in
-- [ ] **Checkpoint:** `/weather` returns valid weather props to frontend
+### Phase 4 — Forecast ✅
+- [x] Create `FetchForecast` Artisan command (`app/Console/Commands/FetchForecast.php`, sig: `nelayar:fetch-forecast`)
+- [x] Extend `OceanService` with `fetchAndStoreForecast(string $baseDate)` — runs `parse_forecast.py`, stores D+1..D+10 rows in `zppi_forecast`
+- [x] `OceanService::getForecastGeoJson()` — implemented in Phase 3
+- [x] Wire `MapController::forecast()` to `OceanService::getForecastGeoJson()` — done in Phase 3
+- [ ] **Checkpoint:** `GET /map/forecast?date=2026-05-21` returns correct GeoJSON — **do manually after CMEMS creds + Python venv**
+
+### Phase 5 — Weather ✅
+- [x] Create `WeatherCache` model (`app/Models/WeatherCache.php`)
+- [x] Create `WeatherService` with BMKG fetch + Open-Meteo fallback (`app/Services/WeatherService.php`)
+- [x] Normalize BMKG response to page props contract (`source`, `wind_speed`, `wind_direction`, `wave_height`, `temperature`, `humidity`, `weather_desc`, `fetched_at`)
+- [x] Open-Meteo uses marine API (`marine-api.open-meteo.com`) for wave height — gracefully skipped if unavailable
+- [x] Wire `WeatherController::index()` to `WeatherService`
+- [ ] Inspect live BMKG response shape and adjust `data_get()` paths if needed — **do manually**
+- [ ] Test fallback: temporarily break BMKG URL, confirm Open-Meteo kicks in — **do manually**
+- [ ] **Checkpoint:** `/weather` returns valid weather props to frontend — **do manually**
 
 ### Phase 6 — Fish prices
 - [ ] Inspect `mi.kkp.go.id/harga` Network tab — identify internal JSON endpoint
@@ -683,7 +689,7 @@ Route::middleware('auth')->group(function () {
 ### Phase 7 — Scheduler + polish
 - [ ] Wire all commands in `routes/console.php`
 - [ ] Test scheduler locally: `php artisan schedule:work`
-- [ ] Add error logging to all service methods (use `Log::error()`)
+- [x] Add error logging to all service methods — done in Phases 3–5 (`Log::error`, `Log::warning`, `Log::info` present in `OceanService` and `WeatherService`; will carry through to `FishPriceService` in Phase 6)
 - [ ] Add seed data for demo: `php artisan db:seed`
   - At least 1 ZPPI zone for today
   - At least 10 forecast entries (D+1..D+10)
@@ -696,7 +702,7 @@ Route::middleware('auth')->group(function () {
 
 - [ ] Confirm GeoJSON feature properties shape: `confidence` (float), `zone_date` (string)
 - [ ] Confirm `forecastDates` is array of `YYYY-MM-DD` strings
-- [ ] Confirm weather props include `source: 'bmkg' | 'openmeteo'`
+- [ ] Confirm weather props shape: `source`, `wind_speed`, `wind_direction`, `wave_height`, `temperature`, `humidity`, `weather_desc`, `fetched_at` — note `humidity` and `weather_desc` were added vs original spec
 - [ ] Confirm filter query param names: `commodity`, `province` (for prices page)
 - [ ] Share route names so frontend can use `route()` helper in Inertia `<Link>`
 

@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WeatherService;
 use Illuminate\Http\Request;
 use Inertia\Response;
 
 class WeatherController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, WeatherService $weather): Response
     {
-        // Implemented in Phase 5 — wired to WeatherService
+        $lat = (float) $request->query('lat', -2.5);
+        $lon = (float) $request->query('lon', 118.0);
+
         return inertia('Weather/Index', [
-            'weather' => null,
+            'weather' => $weather->get($lat, $lon),
         ]);
     }
 }
