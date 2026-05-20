@@ -677,24 +677,25 @@ Route::middleware('auth')->group(function () {
 - [ ] Test fallback: temporarily break BMKG URL, confirm Open-Meteo kicks in — **do manually**
 - [ ] **Checkpoint:** `/weather` returns valid weather props to frontend — **do manually**
 
-### Phase 6 — Fish prices
-- [ ] Inspect `mi.kkp.go.id/harga` Network tab — identify internal JSON endpoint
-- [ ] Implement `scrape_kkp.py` using identified endpoint
-- [ ] Create `FishPriceService` with `scrapeAndStore()` and `get()`
-- [ ] Create `ScrapeKkpPrices` Artisan command
-- [ ] Test: `php artisan nelayar:scrape-kkp` → verify rows in `fish_prices` table
-- [ ] Wire `PricesController::index()` to `FishPriceService`
-- [ ] **Checkpoint:** `/prices` returns non-empty prices array to frontend
+### Phase 6 — Fish prices ✅
+- [ ] Inspect `mi.kkp.go.id/harga` Network tab — identify internal JSON endpoint — **do manually**
+- [x] `scrape_kkp.py` already implements JSON-first + HTML-table fallback; update `BASE_URL`/endpoint once identified via DevTools
+- [x] Create `FishPrice` model (`app/Models/FishPrice.php`)
+- [x] Create `FishPriceService` with `scrapeAndStore()` and `get()` (`app/Services/FishPriceService.php`)
+- [x] Create `ScrapeKkpPrices` Artisan command (`app/Console/Commands/ScrapeKkpPrices.php`, sig: `nelayar:scrape-kkp`)
+- [x] Wire `PricesController::index()` to `FishPriceService` with `commodity` + `province` filters
+- [ ] Test: `php artisan nelayar:scrape-kkp` → verify rows in `fish_prices` table — **do manually after KKP endpoint identified**
+- [ ] **Checkpoint:** `/prices` returns non-empty prices array to frontend — **seed data available in the meantime**
 
-### Phase 7 — Scheduler + polish
-- [ ] Wire all commands in `routes/console.php`
-- [ ] Test scheduler locally: `php artisan schedule:work`
-- [x] Add error logging to all service methods — done in Phases 3–5 (`Log::error`, `Log::warning`, `Log::info` present in `OceanService` and `WeatherService`; will carry through to `FishPriceService` in Phase 6)
-- [ ] Add seed data for demo: `php artisan db:seed`
-  - At least 1 ZPPI zone for today
-  - At least 10 forecast entries (D+1..D+10)
-  - At least 20 fish price rows across multiple provinces
-- [ ] Verify all 5 pages load without 500 errors
+### Phase 7 — Scheduler + polish ✅
+- [x] Wire all commands in `routes/console.php` — `twiceDaily(6,18)` for ocean + forecast; `weekly()` for KKP scrape
+- [ ] Test scheduler locally: `php artisan schedule:work` — **do manually**
+- [x] Add error logging to all service methods — `Log::error` / `Log::warning` / `Log::info` in `OceanService`, `WeatherService`, `FishPriceService`
+- [x] Add seed data — `database/seeders/NelayarSeeder.php` called from `DatabaseSeeder`
+  - 1 ZPPI zone for today (Banda Sea + Java Sea + Flores Sea boxes, confidence 0.72)
+  - 10 forecast entries D+1..D+10 (zone shifts east +0.3° per day, confidence decays)
+  - 22 fish price rows across 5 commodities and 5 provinces
+- [ ] Verify all 5 pages load without 500 errors — **do manually: `/map`, `/map/forecast`, `/weather`, `/prices`**
 
 ---
 
