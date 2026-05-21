@@ -1,4 +1,4 @@
-import { GeoJSON } from 'react-leaflet';
+import { useState, useEffect, type ComponentType } from 'react';
 import type { FeatureCollection } from 'geojson';
 
 interface Props {
@@ -6,5 +6,13 @@ interface Props {
 }
 
 export default function ZppiLayer({ geojson }: Props) {
-    return <GeoJSON key={JSON.stringify(geojson)} data={geojson} />;
+    const [Impl, setImpl] = useState<ComponentType<Props> | null>(null);
+
+    useEffect(() => {
+        import('./ZppiLayerLeaflet').then((m) => setImpl(() => m.default));
+    }, []);
+
+    if (!Impl) return null;
+
+    return <Impl geojson={geojson} />;
 }
