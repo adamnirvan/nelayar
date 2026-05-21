@@ -51,7 +51,6 @@ class AuthController extends Controller
         $request->validate([
             ...$this->profileRules(),
             'password' => ['required', 'string', Password::default(), 'confirmed'],
-            'role'     => ['required', 'in:nelayan,pembeli'],
         ]);
 
         $user = DB::transaction(function () use ($request) {
@@ -59,7 +58,6 @@ class AuthController extends Controller
                 'name'     => $request->name,
                 'email'    => $request->email,
                 'password' => $request->password,
-                'role'     => $request->role,
             ]);
 
             $this->createTeam->handle($user, $user->name."'s Team", isPersonal: true);
@@ -79,7 +77,10 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
+        if (method_exists($token, 'delete')) {
+            $token->delete();
+        }
 
         Auth::guard('web')->logout();
         $request->session()->invalidate();

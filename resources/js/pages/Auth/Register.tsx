@@ -12,7 +12,6 @@ export default function Register() {
         email: '',
         password: '',
         password_confirmation: '',
-        role: 'nelayan' as 'nelayan' | 'pembeli',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [processing, setProcessing] = useState(false);
@@ -203,33 +202,6 @@ export default function Register() {
                                     </button>
                                 </div>
                                 <InputError message={errors.password_confirmation} />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-gray-700">Daftar Sebagai</label>
-                                <div className="flex gap-3">
-                                    {(['nelayan', 'pembeli'] as const).map((r) => (
-                                        <label
-                                            key={r}
-                                            className={`flex flex-1 cursor-pointer items-center justify-center rounded-lg border py-2.5 text-sm font-medium transition ${
-                                                data.role === r
-                                                    ? 'border-amber-400 bg-amber-50 text-amber-700'
-                                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                                            }`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="role"
-                                                value={r}
-                                                checked={data.role === r}
-                                                onChange={() => setData((d) => ({ ...d, role: r }))}
-                                                className="sr-only"
-                                            />
-                                            {r.charAt(0).toUpperCase() + r.slice(1)}
-                                        </label>
-                                    ))}
-                                </div>
-                                <InputError message={errors.role} />
                             </div>
 
                             <button
