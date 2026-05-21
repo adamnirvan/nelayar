@@ -1,6 +1,18 @@
 import { Link, router } from '@inertiajs/react';
+import axios from 'axios';
+import { clearToken } from '@/lib/auth';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+    const handleLogout = async () => {
+        try {
+            await axios.post('/api/auth/logout');
+        } finally {
+            clearToken();
+            router.flushAll();
+            router.visit('/login');
+        }
+    };
+
     return (
         <div>
             <nav>
@@ -12,7 +24,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {' | '}
                 <Link href="/prices">Harga Ikan</Link>
                 {' | '}
-                <button type="button" onClick={() => router.post('/logout')}>
+                <button type="button" onClick={handleLogout}>
                     Logout
                 </button>
             </nav>
