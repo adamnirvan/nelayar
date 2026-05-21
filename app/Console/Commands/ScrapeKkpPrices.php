@@ -15,7 +15,7 @@ class ScrapeKkpPrices extends Command
     {
         $this->info('Scraping KKP fish prices...');
 
-        $prices->scrapeAndStore();
+        $prices->scrapeAndStore($this);
 
         $this->info('Done.');
 

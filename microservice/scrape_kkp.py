@@ -2,9 +2,9 @@
 Usage: python scrape_kkp.py
 Output: JSON array of price records matching the fish_prices table schema.
 
-Endpoint discovered via browser DevTools on mi.kkp.go.id/harga.
-Inspect Network tab → filter XHR → look for requests to internal API returning JSON price data.
-Update BASE_URL and ENDPOINT below once the internal endpoint is identified.
+Data source: mi.kkp.go.id internal dashboard API (api_harga_dashboard.php).
+Fetches province-level summaries first, then drills into each province for
+regency-level detail — 5 commodities × ~34 provinces = ~170 extra requests.
 """
 
 import json
@@ -12,84 +12,85 @@ import sys
 from datetime import date
 
 import requests
-from bs4 import BeautifulSoup
 
 COMMODITIES = ['Ikan Tongkol', 'Ikan Kembung', 'Ikan Bandeng', 'Ikan Teri', 'Udang Basah']
 
-# Update these after identifying the real endpoint via DevTools:
 BASE_URL = 'https://mi.kkp.go.id'
+API_URL = f'{BASE_URL}/api_harga_dashboard.php'
 HEADERS = {
     'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (compatible; nelayar-gis/1.0)',
+    'Referer': f'{BASE_URL}/harga',
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
 }
 
 
-def scrape_via_api():
-    """
-    Attempt to fetch prices from the internal JSON endpoint.
-    Inspect mi.kkp.go.id/harga in DevTools to find the real path and params.
-    """
+def fetch(action: str, params: dict | None = None) -> list | dict:
+    resp = requests.get(
+        API_URL,
+        params={'action': action, **(params or {})},
+        headers=HEADERS,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if isinstance(data, dict) and data.get('status') == 'error':
+        raise ValueError(f"API error for {action}: {data}")
+    return data.get('data', []) if isinstance(data, dict) else data
+
+
+def parse_price(value) -> int:
+    if isinstance(value, (int, float)):
+        return int(value)
+    # Strip Indonesian thousand separators ("45.000" or "45,000")
+    cleaned = str(value).replace('.', '').replace(',', '')
+    digits = ''.join(filter(str.isdigit, cleaned))
+    return int(digits) if digits else 0
+
+
+def scrape():
     results = []
     today = date.today().isoformat()
 
     for commodity in COMMODITIES:
         try:
-            resp = requests.get(
-                f'{BASE_URL}/harga',
-                params={'komoditas': commodity},
-                headers=HEADERS,
-                timeout=15,
-            )
-            resp.raise_for_status()
+            provinces = fetch('get_prov_summary', {'komoditas': commodity})
+        except Exception as e:
+            print(f'Warning: get_prov_summary failed for {commodity}: {e}', file=sys.stderr)
+            continue
 
-            # Try JSON first (internal API)
+        for prov in provinces:
+            prov_id = prov.get('id')
+            prov_name = prov.get('name', '')
+
+            results.append({
+                'commodity': commodity,
+                'province': prov_name,
+                'regency': None,
+                'region_group': None,
+                'price': parse_price(prov.get('price', 0)),
+                'price_change_pct': None,
+                'price_date': today,
+                'period': None,
+                'source': 'mi.kkp.go.id',
+            })
+
             try:
-                payload = resp.json()
-                rows = payload.get('data', payload) if isinstance(payload, dict) else payload
-                for row in rows:
+                regencies = fetch('get_kab_summary', {'prov_id': prov_id, 'komoditas': commodity})
+                for kab in regencies:
                     results.append({
                         'commodity': commodity,
-                        'province': row.get('provinsi', row.get('province', '')),
-                        'regency': row.get('kabupaten', row.get('regency')),
-                        'region_group': row.get('wilayah', row.get('region_group')),
-                        'price': int(row.get('harga', row.get('price', 0))),
-                        'price_change_pct': row.get('perubahan', row.get('price_change_pct')),
-                        'price_date': row.get('tanggal', today),
-                        'period': row.get('periode', row.get('period')),
-                        'source': 'mi.kkp.go.id',
-                    })
-            except (ValueError, KeyError):
-                # Fallback: parse HTML table
-                soup = BeautifulSoup(resp.text, 'html.parser')
-                table = soup.find('table')
-                if not table:
-                    continue
-                headers_row = [th.get_text(strip=True) for th in table.find_all('th')]
-                for tr in table.find_all('tr')[1:]:
-                    cells = [td.get_text(strip=True) for td in tr.find_all('td')]
-                    if not cells:
-                        continue
-                    row_data = dict(zip(headers_row, cells))
-                    results.append({
-                        'commodity': commodity,
-                        'province': row_data.get('Provinsi', ''),
-                        'regency': row_data.get('Kabupaten'),
-                        'region_group': row_data.get('Wilayah'),
-                        'price': int(''.join(filter(str.isdigit, row_data.get('Harga', '0'))) or 0),
+                        'province': prov_name,
+                        'regency': kab.get('name'),
+                        'region_group': None,
+                        'price': parse_price(kab.get('price', 0)),
                         'price_change_pct': None,
                         'price_date': today,
                         'period': None,
                         'source': 'mi.kkp.go.id',
                     })
+            except Exception as e:
+                print(f'Warning: get_kab_summary failed for {commodity}/{prov_name}: {e}', file=sys.stderr)
 
-        except requests.RequestException as e:
-            print(f'Warning: failed to fetch {commodity}: {e}', file=sys.stderr)
-
-    return results
-
-
-def scrape():
-    results = scrape_via_api()
     print(json.dumps(results, ensure_ascii=False))
 
 
