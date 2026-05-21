@@ -17,15 +17,24 @@ export default function MapContainer({ children }: { children?: React.ReactNode 
         });
     }, []);
 
+    // Batas area khusus Indonesia
+    const indonesiaBounds: [[number, number], [number, number]] = [
+        [-11.0, 95.0], 
+        [6.0, 141.0]
+    ];
+
     return (
         <LeafletMap
             center={[-2.5, 118]}
             zoom={5}
-            style={{ height: '100vh', width: '100%' }}
+            maxBounds={indonesiaBounds}
+            maxBoundsViscosity={1.0}
+            style={{ height: '100vh', width: '100%', zIndex: 0 }}
         >
+            {/* TileLayer diganti ke versi Clean/Premium dari CARTO */}
             <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                attribution='&copy; CARTO'
             />
             {children}
         </LeafletMap>

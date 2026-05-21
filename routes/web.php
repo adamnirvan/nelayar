@@ -6,20 +6,18 @@ use App\Http\Controllers\WeatherController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use Illuminate\Support\Facades\Route;
 
-// Invitation accept (needs auth but not team membership check)
+// Invitation accept
 Route::middleware(['auth'])->group(function () {
     Route::get('invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])
         ->name('invitations.accept');
 });
 
-// Protected app routes
-Route::middleware(['auth'])->group(function () {
-    Route::redirect('/', '/map')->name('home');
-
-    Route::get('/map',          [MapController::class, 'index'])->name('map.index');
-    Route::get('/map/forecast', [MapController::class, 'forecast'])->name('map.forecast');
-    Route::get('/weather',      [WeatherController::class, 'index'])->name('weather.index');
-    Route::get('/prices',       [PricesController::class, 'index'])->name('prices.index');
-});
+// --- RUTE DIBUKA SEMENTARA UNTUK PRESENTASI (TANPA AUTH) ---
+Route::redirect('/', '/map')->name('home');
+Route::get('/map',          [MapController::class, 'index'])->name('map.index');
+Route::get('/map/forecast', [MapController::class, 'forecast'])->name('map.forecast');
+Route::get('/weather',      [WeatherController::class, 'index'])->name('weather.index');
+Route::get('/prices',       [PricesController::class, 'index'])->name('prices.index');
+// ------------------------------------------------------------
 
 require __DIR__.'/settings.php';
