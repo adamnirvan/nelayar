@@ -10,6 +10,8 @@ use Inertia\Inertia;
 Route::middleware('guest')->group(function () {
     Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');
     Route::get('/register', fn () => Inertia::render('Auth/Register'))->name('register');
+    Route::get('/forgot-password', fn () => Inertia::render('Auth/ForgotPassword'))->name('password.request');
+    Route::get('/reset-password', fn () => Inertia::render('Auth/ResetPassword'))->name('password.reset');
 });
 
 // Invitation accept (needs auth but not team membership check)
