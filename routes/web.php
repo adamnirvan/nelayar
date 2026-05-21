@@ -5,6 +5,12 @@ use App\Http\Controllers\PricesController;
 use App\Http\Controllers\WeatherController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');
+    Route::get('/register', fn () => Inertia::render('Auth/Register'))->name('register');
+});
 
 // Invitation accept (needs auth but not team membership check)
 Route::middleware(['auth'])->group(function () {

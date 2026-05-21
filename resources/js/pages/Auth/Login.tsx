@@ -1,47 +1,180 @@
-import { useForm } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
+import axios from 'axios';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
+import AppLogoIcon from '@/components/app-logo-icon';
+import { setToken } from '@/lib/auth';
 
 export default function Login() {
-    const { data, setData, post, processing, errors } = useForm({
-        email: '',
-        password: '',
-    });
+    const [data, setData] = useState({ email: '', password: '', remember: false });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [processing, setProcessing] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    function submit(e: React.FormEvent) {
+    async function submit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        post('/login');
+        setErrors({});
+        setProcessing(true);
+
+        try {
+            const response = await axios.post('/api/auth/login', data);
+            setToken(response.data.token);
+            router.visit('/map');
+        } catch (err) {
+            if (axios.isAxiosError(err) && err.response?.status === 422) {
+                setErrors(err.response.data.errors ?? {});
+            } else {
+                setErrors({ email: 'Terjadi kesalahan. Silakan coba lagi.' });
+                // Debug
+                console.error('Login error:', err);
+            }
+        } finally {
+            setProcessing(false);
+        }
     }
 
     return (
-        <form onSubmit={submit}>
-            <div>
-                <label htmlFor="email">Email</label>
-                <input
-                    id="email"
-                    type="email"
-                    value={data.email}
-                    onChange={(e) => setData('email', e.target.value)}
-                    required
-                    autoComplete="email"
-                />
-                {errors.email && <p>{errors.email}</p>}
+        <div className="grid h-screen lg:grid-cols-2">
+            {/* Left panel — form */}
+            <div className="flex items-center justify-center bg-gray-50 p-8">
+                <div className="w-full max-w-sm">
+                    <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100">
+                        <div className="mb-7">
+                            <h2 className="text-2xl font-bold text-gray-900">
+                                Selamat Datang Kembali
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Silakan masuk ke akun Anda untuk melanjutkan akses dashboard navigasi.
+                            </p>
+                        </div>
+
+                        <form onSubmit={submit} className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                                    Alamat Email
+                                </label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        value={data.email}
+                                        onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))}
+                                        placeholder="nama@email.com"
+                                        className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                        required
+                                        autoComplete="email"
+                                        autoFocus
+                                    />
+                                </div>
+                                <InputError message={errors.email} />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <div className="flex items-center">
+                                    <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                                        Kata Sandi
+                                    </label>
+                                </div>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={data.password}
+                                        onChange={(e) => setData((d) => ({ ...d, password: e.target.value }))}
+                                        placeholder="••••••••"
+                                        className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-10 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                        required
+                                        autoComplete="current-password"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((p) => !p)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        tabIndex={-1}
+                                        aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                                    >
+                                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                    </button>
+                                </div>
+                                <InputError message={errors.password} />
+                            </div>
+
+                            <label className="flex cursor-pointer items-center gap-2.5">
+                                <input
+                                    type="checkbox"
+                                    checked={data.remember}
+                                    onChange={(e) => setData((d) => ({ ...d, remember: e.target.checked }))}
+                                    className="size-4 rounded border-gray-300 accent-amber-400"
+                                />
+                                <span className="text-sm text-gray-600">Ingat saya di perangkat ini</span>
+                            </label>
+
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-60"
+                            >
+                                Masuk <span aria-hidden>→</span>
+                            </button>
+                        </form>
+
+                        <p className="mt-6 text-center text-sm text-gray-500">
+                            Belum punya akun?{' '}
+                            <Link
+                                href="/register"
+                                className="font-bold text-gray-900 hover:underline"
+                            >
+                                Daftar Sekarang
+                            </Link>
+                        </p>
+                    </div>
+                </div>
             </div>
 
-            <div>
-                <label htmlFor="password">Password</label>
-                <input
-                    id="password"
-                    type="password"
-                    value={data.password}
-                    onChange={(e) => setData('password', e.target.value)}
-                    required
-                    autoComplete="current-password"
-                />
-                {errors.password && <p>{errors.password}</p>}
-            </div>
+            {/* Right panel — image */}
+            <div
+                className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex"
+                style={{
+                    backgroundImage: 'url(/vessel_2.png)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                }}
+            >
+                <div className="absolute inset-0 bg-[#0a3240]/60" />
 
-            <button type="submit" disabled={processing}>
-                Login
-            </button>
-        </form>
+                <div className="relative z-10 flex justify-end">
+                    <Link href="/" className="flex items-center gap-2">
+                        <AppLogoIcon className="h-7 w-auto" />
+                    </Link>
+                </div>
+
+                <div className="relative z-10 space-y-4 text-right">
+                    <h1 className="text-5xl font-bold leading-tight">
+                        Navigasi Masa Depan Perikanan Nasional
+                    </h1>
+                    <p className="ml-auto max-w-sm text-sm text-white/75">
+                        Memberdayakan nelayan Indonesia dengan presisi data satelit dan kecerdasan oseanik kelas dunia.
+                    </p>
+                </div>
+
+                <div className="relative z-10 flex justify-end gap-10">
+                    <div className="text-right">
+                        <p className="text-2xl font-bold">98%</p>
+                        <p className="text-[11px] font-medium uppercase tracking-widest text-white/60">
+                            Akurasi Deteksi
+                        </p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-2xl font-bold">Real-time</p>
+                        <p className="text-[11px] font-medium uppercase tracking-widest text-white/60">
+                            Data Cuaca
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
