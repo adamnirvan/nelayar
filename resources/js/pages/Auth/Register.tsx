@@ -53,7 +53,6 @@ export default function Register() {
 
                 <Link href="/" className="relative z-10 flex items-center gap-2">
                     <AppLogoIcon className="h-7 w-auto" />
-                    <span className="text-xl font-bold tracking-tight">Nelayar</span>
                 </Link>
 
                 <div className="relative z-10 space-y-4">

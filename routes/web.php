@@ -7,6 +7,8 @@ use App\Http\Controllers\Teams\TeamInvitationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+Route::get('/', fn () => Inertia::render('Landing'))->name('landing');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');
     Route::get('/register', fn () => Inertia::render('Auth/Register'))->name('register');
@@ -22,8 +24,6 @@ Route::middleware(['auth'])->group(function () {
 
 // Protected app routes
 Route::middleware(['auth'])->group(function () {
-    Route::redirect('/', '/map')->name('home');
-
     Route::get('/map',          [MapController::class, 'index'])->name('map.index');
     Route::get('/map/forecast', [MapController::class, 'forecast'])->name('map.forecast');
     Route::get('/weather',      [WeatherController::class, 'index'])->name('weather.index');
