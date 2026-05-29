@@ -14,19 +14,17 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { home } from '@/routes';
 import type { NavItem } from '@/types';
 
 export function AppSidebar() {
     const page = usePage();
-    const dashboardUrl = page.props.currentTeam
-        ? dashboard(page.props.currentTeam.slug)
-        : '/';
+    const dashboardUrl = home.url()
 
     const mainNavItems: NavItem[] = [
         {
-            title: 'Dashboard',
-            href: dashboardUrl,
+            title: 'Peta Nelayar', // Ubah teksnya agar lebih relevan dengan aplikasimu
+            href: dashboardUrl,    // Hapus tanda // di sini agar tipe datanya lengkap
             icon: LayoutGrid,
         },
     ];

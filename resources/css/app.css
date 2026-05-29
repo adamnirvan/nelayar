@@ -132,6 +132,8 @@
     --sidebar-ring: oklch(0.439 0 0);
 }
 
+
+
 @layer base {
     * {
         @apply border-border;
@@ -140,4 +142,24 @@
     body {
         @apply bg-background text-foreground;
     }
+}
+
+/* Efek denyut untuk zona potensi ikan (Biru Tua) */
+.pulsing-marker-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.pulsing-marker {
+    width: 18px;
+    height: 18px;
+    background-color: #1152d2; /* Biru Tua */
+    border-radius: 50%;
+    animation: pulse-blue 1.5s infinite;
+    cursor: pointer;
+}
+@keyframes pulse-blue {
+    0% { box-shadow: 0 0 0 0 rgba(30, 58, 138, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(30, 58, 138, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(30, 58, 138, 0); }
 }
