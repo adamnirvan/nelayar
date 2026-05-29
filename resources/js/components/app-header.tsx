@@ -34,7 +34,6 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { cn, toUrl } from '@/lib/utils';
-import { dashboard } from '@/routes';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type Props = {
@@ -62,7 +61,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const { auth, currentTeam } = page.props;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
-    const dashboardUrl = currentTeam ? dashboard(currentTeam.slug) : '/';
+    const dashboardUrl = '/map';
 
     const mainNavItems: NavItem[] = [
         {

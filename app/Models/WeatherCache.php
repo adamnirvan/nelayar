@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class WeatherCache extends Model
 {
+    protected $table = 'weather_cache';
+
     protected $fillable = [
         'latitude',
         'longitude',

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ZppiForecast extends Model
 {
+    protected $table = 'zppi_forecast';
+
     protected $fillable = [
         'ocean_data_id',
         'forecast_date',

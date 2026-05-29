@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FishPrice;
+use App\Services\FishPriceService;
 use Illuminate\Http\Request;
 use Inertia\Response;
 
 class PricesController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, FishPriceService $prices): Response
     {
-        // Implemented in Phase 6 — wired to FishPriceService
         return inertia('Prices/Index', [
-            'prices'      => [],
-            'commodities' => [],
-            'provinces'   => [],
+            'prices'      => $prices->get(
+                $request->query('commodity'),
+                $request->query('province')
+            ),
+            'commodities' => FishPrice::distinct()->orderBy('commodity')->pluck('commodity'),
+            'provinces'   => FishPrice::distinct()->orderBy('province')->pluck('province'),
         ]);
     }
 }

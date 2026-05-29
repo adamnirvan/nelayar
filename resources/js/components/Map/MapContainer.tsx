@@ -1,42 +1,17 @@
-import 'leaflet/dist/leaflet.css';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { useEffect } from 'react';
-import { MapContainer as LeafletMap, TileLayer } from 'react-leaflet';
+import { useState, useEffect, type ComponentType } from 'react';
 
-export default function MapContainer({ children }: { children?: React.ReactNode }) {
+type MapProps = { children?: React.ReactNode };
+
+export default function MapContainer({ children }: MapProps) {
+    const [MapImpl, setMapImpl] = useState<ComponentType<MapProps> | null>(null);
+
+    // Dynamic import untuk mencegah error SSR di Leaflet
     useEffect(() => {
-        import('leaflet').then(({ default: L }) => {
-            delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)['_getIconUrl'];
-            L.Icon.Default.mergeOptions({
-                iconRetinaUrl: markerIcon2x,
-                iconUrl: markerIcon,
-                shadowUrl: markerShadow,
-            });
-        });
+        import('./MapContainerLeaflet').then((m) => setMapImpl(() => m.default));
     }, []);
 
-    // Batas area khusus Indonesia
-    const indonesiaBounds: [[number, number], [number, number]] = [
-        [-11.0, 95.0], 
-        [6.0, 141.0]
-    ];
+    // Fallback UI saat peta sedang di-load (mencegah layout shift)
+    if (!MapImpl) return <div style={{ height: '100vh', width: '100%', backgroundColor: '#f3f4f6' }} />;
 
-    return (
-        <LeafletMap
-            center={[-2.5, 118]}
-            zoom={5}
-            maxBounds={indonesiaBounds}
-            maxBoundsViscosity={1.0}
-            style={{ height: '100vh', width: '100%', zIndex: 0 }}
-        >
-            {/* TileLayer diganti ke versi Clean/Premium dari CARTO */}
-            <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                attribution='&copy; CARTO'
-            />
-            {children}
-        </LeafletMap>
-    );
+    return <MapImpl>{children}</MapImpl>;
 }

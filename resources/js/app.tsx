@@ -2,10 +2,13 @@ import { createInertiaApp } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
+import { applyStoredToken } from '@/lib/auth';
 import AppLayout from '@/layouts/app-layout';
 import GisLayout from '@/layouts/AppLayout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+
+applyStoredToken();
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -13,7 +16,11 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
-            case name === 'welcome':
+            case name === 'Landing':
+            case name === 'Auth/Register':
+            case name === 'Auth/Login':
+            case name === 'Auth/ForgotPassword':
+            case name === 'Auth/ResetPassword':
                 return null;
             case name.startsWith('Auth/'):
             case name.startsWith('auth/'):
