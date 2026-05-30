@@ -1,8 +1,12 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { clearToken } from '@/lib/auth';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+    // Halaman peta memakai header mengambang sendiri, jadi nav teks ini disembunyikan.
+    const { component } = usePage();
+    const hideNav = component.startsWith('Map/');
+
     const handleLogout = async () => {
         try {
             await axios.post('/api/auth/logout');
@@ -12,6 +16,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             router.visit('/login');
         }
     };
+
+    if (hideNav) {
+        return <>{children}</>;
+    }
 
     return (
         <div>

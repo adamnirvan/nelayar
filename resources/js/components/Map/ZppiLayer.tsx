@@ -3,9 +3,10 @@ import type { FeatureCollection } from 'geojson';
 
 interface Props {
     geojson: FeatureCollection;
+    onZoneOpenChange?: (open: boolean) => void;
 }
 
-export default function ZppiLayer({ geojson }: Props) {
+export default function ZppiLayer({ geojson, onZoneOpenChange }: Props) {
     const [Impl, setImpl] = useState<ComponentType<Props> | null>(null);
 
     // Dynamic import untuk mencegah error SSR (Server-Side Rendering)
@@ -15,5 +16,5 @@ export default function ZppiLayer({ geojson }: Props) {
 
     if (!Impl) return null;
 
-    return <Impl geojson={geojson} />;
+    return <Impl geojson={geojson} onZoneOpenChange={onZoneOpenChange} />;
 }

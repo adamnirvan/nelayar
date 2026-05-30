@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Services\OceanService;
+use App\Services\RouteService;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
 use Inertia\Response;
 
 class MapController extends Controller
@@ -23,20 +25,45 @@ class MapController extends Controller
         $chlPath = "grids/{$date}/chl_raster.png";
 
         // Generator URL otomatis jika file fisik hasil olahan Python tersedia
-        $sstUrl = Storage::disk('public')->exists($sstPath) 
-            ? asset("storage/{$sstPath}") 
+        $sstUrl = Storage::disk('public')->exists($sstPath)
+            ? asset("storage/{$sstPath}")
             : null;
 
-        $chlUrl = Storage::disk('public')->exists($chlPath) 
-            ? asset("storage/{$chlPath}") 
+        $chlUrl = Storage::disk('public')->exists($chlPath)
+            ? asset("storage/{$chlPath}")
             : null;
 
         // 3. Kirim data tunggal ke kanvas React via Inertia
         return inertia('Map/Index', [
             'selectedDate' => $date,
-            'zppiGeoJson'  => $ocean->getGeoJsonByDate($date), // Pastikan method ini mengambil dari tabel zppi_zones berdasarkan tanggal
-            'sstFileUrl'   => $sstUrl,
-            'chlFileUrl'   => $chlUrl,
+            'zppiGeoJson' => $ocean->getGeoJsonByDate($date), // Pastikan method ini mengambil dari tabel zppi_zones berdasarkan tanggal
+            'sstFileUrl' => $sstUrl,
+            'chlFileUrl' => $chlUrl,
         ]);
+    }
+
+    /**
+     * Hitung rute pelayaran (menghindari daratan) dari posisi nelayan ke titik zona.
+     * Dikonsumsi oleh tombol "Mulai Navigasi" di sidebar peta via axios.
+     */
+    public function getRoute(Request $request, RouteService $router): JsonResponse
+    {
+        $validated = $request->validate([
+            'start_lat' => 'required|numeric|between:-90,90',
+            'start_lng' => 'required|numeric|between:-180,180',
+            'end_lat' => 'required|numeric|between:-90,90',
+            'end_lng' => 'required|numeric|between:-180,180',
+        ]);
+
+        $route = $router->findRoute(
+            (float) $validated['start_lat'],
+            (float) $validated['start_lng'],
+            (float) $validated['end_lat'],
+            (float) $validated['end_lng'],
+        );
+
+        $status = empty($route['error']) ? 200 : 422;
+
+        return response()->json($route, $status);
     }
 }
