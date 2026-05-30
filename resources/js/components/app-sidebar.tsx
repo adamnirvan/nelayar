@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { BookOpen, FolderGit2, LayoutGrid, CloudRain, CircleDollarSign } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -17,25 +17,38 @@ import {
 import type { NavItem } from '@/types';
 
 export function AppSidebar() {
+    // Kita gunakan /map sebagai beranda utama setelah login
     const dashboardUrl = '/map';
 
+    // 1. MENU UTAMA (Menyesuaikan dengan routes/web.php yang baru kita buat)
     const mainNavItems: NavItem[] = [
         {
-            title: 'Dashboard',
-            href: dashboardUrl,
+            title: 'Peta Nelayar',
+            href: '/map',
             icon: LayoutGrid,
+        },
+        {
+            title: 'Cuaca Maritim',
+            href: '/weather',
+            icon: CloudRain,
+        },
+        {
+            title: 'Harga Ikan',
+            href: '/prices',
+            icon: CircleDollarSign,
         },
     ];
 
+    // 2. MENU FOOTER (Ubah dari bawaan Laravel jadi milik timmu sendiri)
     const footerNavItems: NavItem[] = [
         {
-            title: 'Repository',
-            href: 'https://github.com/laravel/react-starter-kit',
+            title: 'Repository Tim',
+            href: 'https://github.com/brianabdl/nelayar-gis', // Link ke repo kalian
             icon: FolderGit2,
         },
         {
-            title: 'Documentation',
-            href: 'https://laravel.com/docs/starter-kits#react',
+            title: 'Dokumentasi',
+            href: '#',
             icon: BookOpen,
         },
     ];

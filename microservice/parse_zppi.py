@@ -1,140 +1,291 @@
-"""
-Usage: python parse_zppi.py --date YYYY-MM-DD [--lat-min -11] [--lat-max 6] [--lon-min 95] [--lon-max 141]
-Output: JSON { geojson: FeatureCollection, sst_min, sst_max, chl_threshold, confidence }
-"""
-
-import sys
 import json
 import argparse
+import os
 import numpy as np
+import matplotlib.pyplot as plt
 
-SST_MIN, SST_MAX = 26.0, 30.0
-CHL_MIN = 0.2  # mg/m³
+# ─────────────────────────────────────────────
+# HELPER: Simpan PNG heatmap overlay
+# ─────────────────────────────────────────────
+def save_image_overlay(date, name, lats, lons, values,
+                       cmap='turbo', vmin=None, vmax=None, smooth=False):
+    dir_path = f"storage/app/public/grids/{date}"
+    os.makedirs(dir_path, exist_ok=True)
+    file_path = os.path.join(dir_path, f"{name}.png")
 
+    cmap_obj = plt.get_cmap(cmap).copy()
+    cmap_obj.set_bad(color='white', alpha=0.0)
+    img_data = np.flipud(values)
 
-def build_multipolygon_geojson(mask, lats, lons, res):
-    """Convert a boolean mask grid into a GeoJSON MultiPolygon."""
-    from shapely.geometry import box, mapping
-    from shapely.ops import unary_union
+    if smooth:
+        from scipy.ndimage import gaussian_filter
+        img_data = gaussian_filter(img_data, sigma=2.0)
 
-    polygons = []
-    for i, lat in enumerate(lats):
-        for j, lon in enumerate(lons):
-            if mask[i, j]:
-                polygons.append(box(lon, lat, lon + res, lat + res))
+    plt.imsave(file_path, img_data, cmap=cmap_obj, vmin=vmin, vmax=vmax, format='png')
+    return f"storage/grids/{date}/{name}.png"
 
-    if not polygons:
-        return None
+# ─────────────────────────────────────────────
+# HELPER: Ekstrak variabel dari dataset xarray
+# ─────────────────────────────────────────────
+def safe_extract_variable(ds, possible_names):
+    for name in possible_names:
+        if name in ds.variables:
+            data = ds[name]
+            if 'depth' in data.dims:       data = data.isel(depth=0)
+            elif 'elevation' in data.dims: data = data.isel(elevation=0)
+            if 'time' in data.dims:        data = data.mean(dim='time')
+            return data.values
+    raise ValueError(f"Tidak menemukan variabel: {possible_names}")
 
-    merged = unary_union(polygons)
-    if merged.geom_type == 'Polygon':
-        from shapely.geometry import MultiPolygon
-        merged = MultiPolygon([merged])
+# ─────────────────────────────────────────────
+# HELPER: Confidence dinamis per ikan per piksel
+# ─────────────────────────────────────────────
+def compute_confidence_map(master_sst, master_chl, profile):
+    sst_min  = profile['sst_min']
+    sst_max  = profile['sst_max']
+    chl_min  = profile.get('chl_min')
+    chl_max  = profile.get('chl_max')
 
-    return mapping(merged)
+    sst_mask = (master_sst >= sst_min) & (master_sst <= sst_max)
 
+    sst_mid  = (sst_min + sst_max) / 2
+    sst_half = (sst_max - sst_min) / 2 or 1e-6  # hindari div/0
 
+    sst_conf = np.where(
+        sst_mask,
+        1.0 - (np.abs(master_sst - sst_mid) / sst_half) * 0.5,
+        0.0
+    )
+
+    use_chl = (
+        chl_min is not None and chl_max is not None
+        and chl_min > 0 and chl_max > 0
+        and master_chl is not None
+    )
+
+    if not use_chl:
+        return sst_conf, sst_mask
+
+    chl_mask  = (master_chl >= chl_min) & (master_chl <= chl_max)
+    full_mask = sst_mask & chl_mask
+
+    chl_mid  = (chl_min + chl_max) / 2
+    chl_half = (chl_max - chl_min) / 2 or 1e-6
+
+    chl_conf = np.where(
+        chl_mask,
+        1.0 - (np.abs(master_chl - chl_mid) / chl_half) * 0.5,
+        0.0
+    )
+
+    combined = np.where(full_mask, (sst_conf + chl_conf) / 2, 0.0)
+    return combined, full_mask
+
+# ─────────────────────────────────────────────
+# FETCH: Ambil SST & CHL dari CMEMS
+# ─────────────────────────────────────────────
 def fetch_cmems(date, lat_min, lat_max, lon_min, lon_max):
     import copernicusmarine
-    import os
-
     username = os.environ.get('CMEMS_USERNAME')
     password = os.environ.get('CMEMS_PASSWORD')
 
     sst_ds = copernicusmarine.open_dataset(
-        dataset_id='cmems_mod_glo_phy-thetao_anfc_0.083deg_PT6H-i',
-        variables=['thetao'],
-        minimum_latitude=lat_min,
-        maximum_latitude=lat_max,
-        minimum_longitude=lon_min,
-        maximum_longitude=lon_max,
+        dataset_id='cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m',
+        minimum_latitude=lat_min,  maximum_latitude=lat_max,
+        minimum_longitude=lon_min, maximum_longitude=lon_max,
         start_datetime=f'{date}T00:00:00',
         end_datetime=f'{date}T23:59:59',
-        username=username,
-        password=password,
+        username=username, password=password,
     )
-    sst = sst_ds['thetao'].isel(depth=0).mean(dim='time').values
+    sst      = safe_extract_variable(sst_ds, ['thetao', 'sst'])
+    sst_lats = sst_ds['latitude'].values
+    sst_lons = sst_ds['longitude'].values
 
-    chl_ds = copernicusmarine.open_dataset(
-        dataset_id='cmems_mod_glo_bgc-bio_anfc_0.25deg_P1D-m',
-        variables=['chl'],
-        minimum_latitude=lat_min,
-        maximum_latitude=lat_max,
-        minimum_longitude=lon_min,
-        maximum_longitude=lon_max,
-        start_datetime=f'{date}T00:00:00',
-        end_datetime=f'{date}T23:59:59',
-        username=username,
-        password=password,
-    )
-    chl = chl_ds['chl'].isel(depth=0).mean(dim='time').values
+    try:
+        chl_ds = copernicusmarine.open_dataset(
+            dataset_id='cmems_mod_glo_bgc-pft_anfc_0.25deg_P1D-m',
+            minimum_latitude=lat_min,  maximum_latitude=lat_max,
+            minimum_longitude=lon_min, maximum_longitude=lon_max,
+            start_datetime=f'{date}T00:00:00',
+            end_datetime=f'{date}T23:59:59',
+            username=username, password=password,
+        )
+        chl      = safe_extract_variable(chl_ds, ['chl', 'CHL'])
+        chl_lats = chl_ds['latitude'].values
+        chl_lons = chl_ds['longitude'].values
+    except Exception:
+        chl = None; chl_lats = None; chl_lons = None
 
-    lats = sst_ds['latitude'].values
-    lons = sst_ds['longitude'].values
-    res = float(lons[1] - lons[0]) if len(lons) > 1 else 0.083
+    return sst, sst_lats, sst_lons, chl, chl_lats, chl_lons
 
-    return sst, chl, lats, lons, res
-
-
+# ─────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--date', required=True)
-    parser.add_argument('--lat-min', type=float, default=-11)
-    parser.add_argument('--lat-max', type=float, default=6)
-    parser.add_argument('--lon-min', type=float, default=95)
-    parser.add_argument('--lon-max', type=float, default=141)
+    parser.add_argument('--date',          required=True)
+    parser.add_argument('--lat-min',       type=float, default=-11.0)
+    parser.add_argument('--lat-max',       type=float, default=6.0)
+    parser.add_argument('--lon-min',       type=float, default=95.0)
+    parser.add_argument('--lon-max',       type=float, default=141.0)
+    parser.add_argument('--fish-profiles', required=True,
+                        help='JSON array fish profiles dari tabel fish_profiles')
     args = parser.parse_args()
 
     try:
-        sst, chl, lats, lons, res = fetch_cmems(
+        fish_profiles = json.loads(args.fish_profiles)
+
+        dtype = np.uint16 if len(fish_profiles) > 8 else np.uint8
+        for i, p in enumerate(fish_profiles):
+            p['bit'] = 1 << i
+
+        sst, sst_lats, sst_lons, chl, chl_lats, chl_lons = fetch_cmems(
             args.date, args.lat_min, args.lat_max, args.lon_min, args.lon_max
         )
 
-        # Interpolate chl to sst grid if shapes differ
-        if chl.shape != sst.shape:
-            from scipy.interpolate import RegularGridInterpolator
-            chl_lats = np.linspace(args.lat_min, args.lat_max, chl.shape[0])
-            chl_lons = np.linspace(args.lon_min, args.lon_max, chl.shape[1])
-            interp = RegularGridInterpolator((chl_lats, chl_lons), chl, bounds_error=False, fill_value=0)
-            grid_lats, grid_lons = np.meshgrid(lats, lons, indexing='ij')
-            chl = interp((grid_lats, grid_lons))
+        res         = 0.027
+        master_lats = np.arange(args.lat_min, args.lat_max, res)
+        master_lons = np.arange(args.lon_min, args.lon_max, res)
+        grid_lats, grid_lons = np.meshgrid(master_lats, master_lons, indexing='ij')
 
-        mask = (sst >= SST_MIN) & (sst <= SST_MAX) & (chl >= CHL_MIN)
-        confidence = float(np.sum(mask) / mask.size) if mask.size > 0 else 0.0
+        from scipy.interpolate import RegularGridInterpolator
 
-        geom = build_multipolygon_geojson(mask, lats, lons, res)
+        interp_sst = RegularGridInterpolator(
+            (sst_lats, sst_lons), sst,
+            method='linear', bounds_error=False, fill_value=None
+        )
+        master_sst = interp_sst((grid_lats, grid_lons))
+
+        sst_file = save_image_overlay(
+            args.date, "sst_raster",
+            master_lats, master_lons, master_sst,
+            cmap='jet', vmin=26.0, vmax=32.0
+        )
+
+        master_chl = None
+        chl_file   = None
+
+        if chl is not None:
+            interp_chl = RegularGridInterpolator(
+                (chl_lats, chl_lons), chl,
+                method='nearest', bounds_error=False, fill_value=None
+            )
+            master_chl = interp_chl((grid_lats, grid_lons))
+
+            chl_file = save_image_overlay(
+                args.date, "chl_raster",
+                master_lats, master_lons, master_chl,
+                cmap='YlGn', vmin=0.0, vmax=1.0, smooth=True
+            )
+
+        composition_grid = np.zeros_like(master_sst, dtype=dtype)
+        confidence_maps = {}
+
+        for p in fish_profiles:
+            conf_map, fish_mask = compute_confidence_map(master_sst, master_chl, p)
+            # Perhatikan: Diambil dari nama_lokal
+            confidence_maps[p['nama_lokal']] = conf_map
+            composition_grid[fish_mask] |= p['bit']
+
+        import rasterio
+        from rasterio.features import shapes, geometry_mask
+        from rasterio.transform import from_bounds
+        from shapely.geometry import shape, MultiPolygon, mapping
+        from shapely.ops import unary_union
+
+        transform = from_bounds(
+            west=float(master_lons[0]),
+            south=float(master_lats[0]),
+            east=float(master_lons[-1] + res),
+            north=float(master_lats[-1] + res),
+            width=composition_grid.shape[1],
+            height=composition_grid.shape[0],
+        )
+
+        data     = np.flipud(composition_grid)
         features = []
-        if geom:
+        MIN_AREA = res * res * 5
+
+        for geom_dict, val in shapes(data, transform=transform, connectivity=8):
+            val = int(val)
+            if val == 0:
+                continue
+
+            geom_shape = shape(geom_dict)
+            if geom_shape.area < MIN_AREA:
+                continue
+
+            merged = unary_union([geom_shape])
+            if merged.is_empty:
+                continue
+            if merged.geom_type == 'Polygon':
+                merged = MultiPolygon([merged])
+            elif merged.geom_type not in ('MultiPolygon', 'GeometryCollection'):
+                continue
+
+            # MASKING SPASIAL LOKAL
+            poly_mask = geometry_mask([merged], out_shape=data.shape, transform=transform, invert=True)
+            local_mask = np.flipud(poly_mask)
+
+            ikan_cocok = []
+
+            for p in fish_profiles:
+                if not (val & p['bit']):
+                    continue
+
+                fish_local_mask = local_mask & (composition_grid & p['bit']).astype(bool)
+                conf_map      = confidence_maps[p['nama_lokal']]
+
+                cocok_vals = conf_map[fish_local_mask]
+                avg_conf   = float(np.mean(cocok_vals)) if len(cocok_vals) > 0 else 0.5
+
+                ikan_cocok.append({
+                    'nama_lokal':  p['nama_lokal'],       
+                    'nama_lain':   p.get('nama_lain', ''), 
+                    'nama_ilmiah': p.get('nama_ilmiah', ''), 
+                    'confidence':  round(avg_conf, 3),
+                    'image_path':  p.get('image_path', ''),
+                })
+
+            ikan_cocok.sort(key=lambda x: x['confidence'], reverse=True)
+
+            if not ikan_cocok:
+                continue
+
+            sst_rata = round(float(np.mean(master_sst[local_mask])), 2) if local_mask.any() else None
+            chl_rata = round(float(np.mean(master_chl[local_mask])), 3) if (master_chl is not None and local_mask.any()) else None
+
             features.append({
-                'type': 'Feature',
-                'geometry': geom,
+                'type':     'Feature',
+                'geometry': mapping(merged),
                 'properties': {
-                    'confidence': confidence,
-                    'zone_date': args.date,
-                },
+                    'zone_date':  args.date,
+                    'sst_rata':   sst_rata,
+                    'chl_rata':   chl_rata,
+                    'ikan_cocok': ikan_cocok,
+                    'ikan_utama': ikan_cocok[0]['nama_lokal'] if ikan_cocok else None,
+                }
             })
 
         result = {
-            'geojson': {'type': 'FeatureCollection', 'features': features},
-            'sst_min': SST_MIN,
-            'sst_max': SST_MAX,
-            'chl_threshold': CHL_MIN,
-            'confidence': confidence,
+            'geojson':       {'type': 'FeatureCollection', 'features': features},
+            'confidence':    float((composition_grid > 0).sum() / composition_grid.size),
+            'sst_file_path': sst_file,
+            'chl_file_path': chl_file,
+            'error':         None,
         }
 
     except Exception as e:
-        # Return empty result so Laravel can handle gracefully
+        import traceback
         result = {
-            'geojson': {'type': 'FeatureCollection', 'features': []},
-            'sst_min': SST_MIN,
-            'sst_max': SST_MAX,
-            'chl_threshold': CHL_MIN,
-            'confidence': 0.0,
-            'error': str(e),
+            'geojson':       {'type': 'FeatureCollection', 'features': []},
+            'confidence':    0.0,
+            'sst_file_path': None,
+            'chl_file_path': None,
+            'error':         str(e) + '\n' + traceback.format_exc(),
         }
 
     print(json.dumps(result))
-
 
 if __name__ == '__main__':
     main()

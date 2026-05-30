@@ -8,6 +8,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('nelayar:fetch-ocean')->twiceDaily(6, 18);
-Schedule::command('nelayar:fetch-forecast')->twiceDaily(6, 18);
+// --- JADWAL OTOMATIS NELAYAR ---
+// 1. Menarik data spasial ZPPI & memproses Fuzzy Logic setiap jam 02:00 dini hari
+Schedule::command('ocean:sync-forecast')->dailyAt('02:00');
+
+// 2. Mengambil data harga pasar ikan mingguan dari situs KKP
 Schedule::command('nelayar:scrape-kkp')->weekly();

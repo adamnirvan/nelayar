@@ -13,15 +13,14 @@ class OceanData extends Model
         'lat_max',
         'lon_min',
         'lon_max',
-        'sst_grid',
-        'chl_grid',
+        'sst_file_path', // <-- Kolom baru untuk path file
+        'chl_file_path', // <-- Kolom baru untuk path file
         'source',
         'fetched_at',
     ];
 
     protected $casts = [
-        'sst_grid'   => 'array',
-        'chl_grid'   => 'array',
+        // Casts array untuk grid sudah dihapus karena kita pakai string file path
         'fetched_at' => 'datetime',
         'data_date'  => 'date',
     ];

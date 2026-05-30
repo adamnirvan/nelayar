@@ -11,191 +11,118 @@ class OceanService
 {
     public function fetchAndStore(string $date): void
     {
-        $pythonPath = env('PYTHON_PATH', 'python3');
+        $pythonPath = base_path(env('PYTHON_PATH', 'python3'));
         $scriptPath = base_path('microservice/parse_zppi.py');
-
-        $result = Process::run(
-            "{$pythonPath} {$scriptPath} --date {$date}"
-        );
-
+     
+        $fishProfiles = DB::table('fish_profiles')
+        ->orderBy('id')
+        ->get([
+            'nama_lokal',
+            'nama_lain',
+            'nama_ilmiah',
+            'sst_min',
+            'sst_max',
+            'chl_min',   
+            'chl_max',   
+            'image_path',
+        ])
+        ->toArray();
+        $fishJson = escapeshellarg(json_encode($fishProfiles));
+     
+        $result = Process::timeout(600)->run("{$pythonPath} {$scriptPath} --date {$date} --fish-profiles {$fishJson}");
+     
         if ($result->failed()) {
-            Log::error('ZPPI parse failed', [
-                'date'  => $date,
-                'error' => $result->errorOutput(),
-            ]);
+            Log::error('ZPPI parse failed', ['date' => $date, 'error' => $result->errorOutput()]);
             return;
         }
-
+     
         $data = json_decode($result->output(), true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::error('ZPPI parse returned invalid JSON', [
-                'date'   => $date,
-                'output' => $result->output(),
-            ]);
+     
+        if (json_last_error() !== JSON_ERROR_NONE || !empty($data['error'])) {
+            Log::error('ZPPI Python error', ['error' => $data['error'] ?? 'Invalid JSON']);
             return;
         }
-
-        if (isset($data['error'])) {
-            Log::warning('ZPPI parse completed with error', [
-                'date'  => $date,
-                'error' => $data['error'],
-            ]);
-        }
-
-        $oceanData = OceanData::create([
-            'data_date'  => $date,
-            'source'     => 'CMEMS',
-            'fetched_at' => now(),
-        ]);
-
-        $features = $data['geojson']['features'] ?? [];
-
-        if (empty($features)) {
-            Log::info('ZPPI parse returned no features for date', ['date' => $date]);
-            return;
-        }
-
-        foreach ($features as $feature) {
-            $geom = $feature['geometry'] ?? null;
-            if (! $geom) {
-                continue;
-            }
-
-            DB::statement("
-                INSERT INTO zppi_zones
-                    (ocean_data_id, zone_date, sst_min, sst_max, chl_threshold, confidence, geom, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ST_GeomFromGeoJSON(?), now(), now())
-            ", [
-                $oceanData->id,
-                $date,
-                $data['sst_min'],
-                $data['sst_max'],
-                $data['chl_threshold'],
-                $data['confidence'],
-                json_encode($geom),
-            ]);
-        }
-    }
-
-    public function fetchAndStoreForecast(string $baseDate): void
-    {
-        $pythonPath = env('PYTHON_PATH', 'python3');
-        $scriptPath = base_path('microservice/parse_forecast.py');
-
-        $result = Process::run(
-            "{$pythonPath} {$scriptPath} --date {$baseDate}"
-        );
-
-        if ($result->failed()) {
-            Log::error('Forecast parse failed', [
-                'date'  => $baseDate,
-                'error' => $result->errorOutput(),
-            ]);
-            return;
-        }
-
-        $entries = json_decode($result->output(), true);
-
-        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($entries)) {
-            Log::error('Forecast parse returned invalid JSON', [
-                'date'   => $baseDate,
-                'output' => $result->output(),
-            ]);
-            return;
-        }
-
-        // One OceanData record anchors the entire 10-day run
-        $oceanData = OceanData::create([
-            'data_date'  => $baseDate,
-            'source'     => 'CMEMS-forecast',
-            'fetched_at' => now(),
-        ]);
-
-        foreach ($entries as $entry) {
-            if (isset($entry['error'])) {
-                Log::warning('Forecast entry error', [
-                    'day_offset'    => $entry['day_offset'],
-                    'forecast_date' => $entry['forecast_date'],
-                    'error'         => $entry['error'],
-                ]);
-            }
-
-            $features = $entry['geojson']['features'] ?? [];
-
-            if (empty($features)) {
-                continue;
-            }
-
+     
+        DB::beginTransaction();
+        try {
+            $oceanData = OceanData::updateOrCreate(
+                ['data_date' => $date],
+                [
+                    'source' => 'CMEMS', 'lat_min' => -11.0, 'lat_max' => 6.0,
+                    'lon_min' => 95.0,  'lon_max' => 141.0,
+                    'sst_file_path' => $data['sst_file_path'] ?? null,
+                    'chl_file_path' => $data['chl_file_path'] ?? null,
+                    'fetched_at' => now(),
+                ]
+            );
+     
+            DB::table('zppi_zones')->where('ocean_data_id', $oceanData->id)->delete();
+     
+            $features = $data['geojson']['features'] ?? [];
+     
             foreach ($features as $feature) {
-                $geom = $feature['geometry'] ?? null;
-                if (! $geom) {
-                    continue;
-                }
+                $geom  = $feature['geometry'] ?? null;
+                $props = $feature['properties'] ?? [];
+                if (!$geom) continue;
 
+                // INSERT MURNI KE KOLOM MASING-MASING
                 DB::statement("
-                    INSERT INTO zppi_forecast
-                        (ocean_data_id, forecast_date, day_offset, confidence, geom, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ST_GeomFromGeoJSON(?), now(), now())
+                    INSERT INTO zppi_zones
+                        (ocean_data_id, zone_date, ikan_cocok, sst_rata, chl_rata, confidence, geom, created_at, updated_at)
+                    VALUES (?, ?, ?::jsonb, ?, ?, ?, ST_Multi(ST_GeomFromGeoJSON(?)), now(), now())
                 ", [
                     $oceanData->id,
-                    $entry['forecast_date'],
-                    $entry['day_offset'],
-                    $entry['confidence'],
+                    $date,
+                    json_encode($props['ikan_cocok'] ?? []),
+                    $props['sst_rata'] ?? null,
+                    $props['chl_rata'] ?? null,
+                    $data['confidence'] ?? 1.0,
                     json_encode($geom),
                 ]);
             }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('ZPPI DB Error', ['error' => $e->getMessage()]);
         }
     }
 
-    public function getTodayGeoJson(): array
+    public function getGeoJsonByDate(string $date): array
     {
+        ini_set('memory_limit', '512M');
+        $oceanData = DB::table('ocean_data')->where('data_date', $date)->first();
+
+        // SELECT KOLOM MURNI
         $rows = DB::select("
-            SELECT ST_AsGeoJSON(geom) as geojson, confidence, zone_date::text
+            SELECT ST_AsGeoJSON(geom) as geojson, confidence, ikan_cocok, sst_rata, chl_rata, zone_date::text
             FROM zppi_zones
-            WHERE zone_date = CURRENT_DATE
-            ORDER BY created_at DESC
-        ");
-
-        if (empty($rows)) {
-            return ['type' => 'FeatureCollection', 'features' => []];
-        }
-
-        $features = array_map(fn($row) => [
-            'type'       => 'Feature',
-            'geometry'   => json_decode($row->geojson, true),
-            'properties' => [
-                'confidence' => $row->confidence,
-                'zone_date'  => $row->zone_date,
-            ],
-        ], $rows);
-
-        return ['type' => 'FeatureCollection', 'features' => $features];
-    }
-
-    public function getForecastGeoJson(string $date): array
-    {
-        $rows = DB::select("
-            SELECT ST_AsGeoJSON(geom) as geojson, confidence, forecast_date::text, day_offset
-            FROM zppi_forecast
-            WHERE forecast_date = ?
+            WHERE zone_date = ? 
             ORDER BY created_at DESC
         ", [$date]);
 
         if (empty($rows)) {
-            return ['type' => 'FeatureCollection', 'features' => []];
+            return ['type' => 'FeatureCollection', 'features' => [], 'sst_file_path' => null, 'chl_file_path' => null];
         }
 
-        $features = array_map(fn($row) => [
-            'type'       => 'Feature',
-            'geometry'   => json_decode($row->geojson, true),
-            'properties' => [
-                'confidence'    => $row->confidence,
-                'forecast_date' => $row->forecast_date,
-                'day_offset'    => $row->day_offset,
-            ],
-        ], $rows);
+        $features = array_map(function($row) {
+            return [
+                'type'       => 'Feature',
+                'geometry'   => $row->geojson, 
+                'properties' => [
+                    'confidence' => $row->confidence,
+                    'zone_date'  => $row->zone_date,
+                    'ikan_cocok' => json_decode($row->ikan_cocok, true) ?? [], 
+                    'sst_rata'   => $row->sst_rata, // Langsung mapping dari DB
+                    'chl_rata'   => $row->chl_rata, // Langsung mapping dari DB
+                ],
+            ];
+        }, $rows);
 
-        return ['type' => 'FeatureCollection', 'features' => $features];
+        return [
+            'type'          => 'FeatureCollection', 
+            'features'      => $features,
+            'sst_file_path' => $oceanData?->sst_file_path ? asset($oceanData->sst_file_path) : null,
+            'chl_file_path' => $oceanData?->chl_file_path ? asset($oceanData->chl_file_path) : null
+        ];
     }
 }

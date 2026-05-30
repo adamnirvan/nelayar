@@ -8,6 +8,7 @@ interface Props {
 export default function ZppiLayer({ geojson }: Props) {
     const [Impl, setImpl] = useState<ComponentType<Props> | null>(null);
 
+    // Dynamic import untuk mencegah error SSR (Server-Side Rendering)
     useEffect(() => {
         import('./ZppiLayerLeaflet').then((m) => setImpl(() => m.default));
     }, []);

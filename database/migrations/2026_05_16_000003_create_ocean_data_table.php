@@ -15,8 +15,11 @@ return new class extends Migration
             $table->float('lat_max')->nullable();
             $table->float('lon_min')->nullable();
             $table->float('lon_max')->nullable();
-            $table->json('sst_grid')->nullable();
-            $table->json('chl_grid')->nullable();
+        
+            // Mengubah json menjadi string path berkas untuk efisiensi RAM & Storage
+            $table->string('sst_file_path')->nullable();
+            $table->string('chl_file_path')->nullable();
+        
             $table->string('source')->default('CMEMS');
             $table->timestamp('fetched_at')->nullable();
             $table->timestamps();
