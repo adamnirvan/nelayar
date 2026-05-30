@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react';
 import { format, addDays, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
 import type { FeatureCollection } from 'geojson';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import MapContainer from '@/components/Map/MapContainer';
 import MapHeader from '@/components/Map/MapHeader';
@@ -11,6 +11,8 @@ import NavigationBanner from '@/components/Map/NavigationBanner';
 import { NavigationProvider } from '@/components/Map/NavigationContext';
 import ZppiOverlays from '@/components/Map/ZppiOverlays';
 import type { SearchTarget } from '@/components/Map/ZppiOverlaysLeaflet';
+import { buildFishIndex } from '@/lib/fishSearch';
+import type { FishSuggestion } from '@/lib/fishSearch';
 
 interface Props {
     selectedDate: string;
@@ -34,8 +36,27 @@ export default function MapIndex({
     const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
     const [isSearching, setIsSearching] = useState<boolean>(false);
 
+    // Filter pencarian ikan: key spesies aktif (null = tampilkan semua zona).
+    // `clearSignal` dipakai untuk mereset kolom pencarian di header saat tanggal berganti.
+    const [fishFilter, setFishFilter] = useState<string | null>(null);
+    const [clearSignal, setClearSignal] = useState<number>(0);
+
+    // Indeks spesies unik dari seluruh zona pada tanggal aktif (sumber saran pencarian).
+    const fishSuggestions = useMemo(
+        () => buildFishIndex(zppiGeoJson),
+        [zppiGeoJson],
+    );
+
     // Sidebar detail zona sedang terbuka? (untuk menyembunyikan elemen header yang menutupinya)
     const [zoneOpen, setZoneOpen] = useState<boolean>(false);
+
+    // Memilih spesies dari dropdown: aktifkan filter marker, batalkan fly wilayah.
+    const handleSelectFish = (fish: FishSuggestion) => {
+        setSearchTarget(null);
+        setFishFilter(fish.key);
+    };
+
+    const handleClearFish = () => setFishFilter(null);
 
     // Pencarian wilayah via Nominatim (OpenStreetMap), dibatasi ke Indonesia
     const handleSearch = async (query: string) => {
@@ -73,6 +94,10 @@ export default function MapIndex({
         setDayOffset(value);
         setIsChangingDate(true);
 
+        // Data zona berganti → reset filter ikan & kolom pencarian agar tak menyaring data lama.
+        setFishFilter(null);
+        setClearSignal((n) => n + 1);
+
         const targetDateString = format(
             addDays(new Date(), value),
             'yyyy-MM-dd',
@@ -108,6 +133,7 @@ export default function MapIndex({
                         chlFileUrl={chlFileUrl}
                         activeLayer={activeLayer}
                         searchTarget={searchTarget}
+                        fishFilter={fishFilter}
                         onZoneOpenChange={setZoneOpen}
                     />
                 </MapContainer>
@@ -117,6 +143,11 @@ export default function MapIndex({
                     activeLayer={activeLayer}
                     onLayerChange={setActiveLayer}
                     onSearch={handleSearch}
+                    fishSuggestions={fishSuggestions}
+                    onSelectFish={handleSelectFish}
+                    onClearFish={handleClearFish}
+                    activeFishKey={fishFilter}
+                    clearSignal={clearSignal}
                     isSearching={isSearching}
                     sidebarOpen={zoneOpen}
                 />

@@ -2,6 +2,7 @@ import type { FeatureCollection, Feature } from 'geojson';
 import L from 'leaflet';
 import { useState, useMemo, useEffect } from 'react';
 import { GeoJSON, Marker, useMap } from 'react-leaflet';
+import { featureHasFish } from '@/lib/fishSearch';
 import ZoneDetailSidebar from './ZoneDetailSidebar';
 
 // Ikon kustom menggunakan CSS murni (tanpa file gambar .png)
@@ -16,10 +17,15 @@ const createPulsingIcon = () => {
 
 interface Props {
     geojson: FeatureCollection;
+    fishFilter?: string | null;
     onZoneOpenChange?: (open: boolean) => void;
 }
 
-export default function ZppiLayerLeaflet({ geojson, onZoneOpenChange }: Props) {
+export default function ZppiLayerLeaflet({
+    geojson,
+    fishFilter = null,
+    onZoneOpenChange,
+}: Props) {
     const map = useMap();
     const [selectedZone, setSelectedZone] = useState<Feature | null>(null);
     const [selectedCenter, setSelectedCenter] = useState<{
@@ -68,6 +74,48 @@ export default function ZppiLayerLeaflet({ geojson, onZoneOpenChange }: Props) {
             .filter((z) => z.center !== null); // Buang yang tidak punya titik tengah
     }, [safeGeojson]);
 
+    // 2b. Saat filter ikan aktif, hanya tampilkan zona yang memuat spesies tsebut.
+    const visibleZones = useMemo(() => {
+        if (!fishFilter) {
+            return zonesWithCenters;
+        }
+
+        return zonesWithCenters.filter((z) =>
+            featureHasFish(z.feature, fishFilter),
+        );
+    }, [zonesWithCenters, fishFilter]);
+
+    // Saat filter berganti, tutup sidebar zona agar marker hasil filter terlihat.
+    // Pola "menyesuaikan state saat prop berubah" (tanpa effect) sesuai anjuran React.
+    const [prevFilter, setPrevFilter] = useState<string | null>(fishFilter);
+
+    if (fishFilter !== prevFilter) {
+        setPrevFilter(fishFilter);
+        setSelectedZone(null);
+        setSelectedCenter(null);
+    }
+
+    // Saat filter aktif, geser & zoom peta agar seluruh zona hasil filter terlihat.
+    useEffect(() => {
+        if (!fishFilter) {
+            return;
+        }
+
+        const points = visibleZones
+            .map((z) => z.center)
+            .filter((c): c is L.LatLng => c !== null);
+
+        if (points.length === 0) {
+            return;
+        }
+
+        map.flyToBounds(L.latLngBounds(points), {
+            padding: [80, 80],
+            maxZoom: 11,
+            duration: 1.2,
+        });
+    }, [fishFilter, visibleZones, map]);
+
     // 3. Aksi saat Marker Denyut diklik
     const handleZoneClick = (zone: any) => {
         setSelectedZone(zone.feature);
@@ -90,7 +138,7 @@ export default function ZppiLayerLeaflet({ geojson, onZoneOpenChange }: Props) {
         <>
             {/* KONDISI 1: Tampilkan Marker Berdenyut (Jika belum ada zona yang dipilih) */}
             {!selectedZone &&
-                zonesWithCenters.map((zone, idx) => (
+                visibleZones.map((zone, idx) => (
                     <Marker
                         key={`marker-${idx}`}
                         position={zone.center!}

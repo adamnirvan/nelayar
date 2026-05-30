@@ -21,6 +21,7 @@ interface Props {
     chlFileUrl: string | null;
     activeLayer: MapLayer;
     searchTarget: SearchTarget | null;
+    fishFilter: string | null;
     onZoneOpenChange?: (open: boolean) => void;
 }
 
@@ -46,6 +47,7 @@ export default function ZppiOverlaysLeaflet({
     chlFileUrl,
     activeLayer,
     searchTarget,
+    fishFilter,
     onZoneOpenChange,
 }: Props) {
     return (
@@ -60,6 +62,7 @@ export default function ZppiOverlaysLeaflet({
                 zppiGeoJson.features.length > 0 && (
                     <ZppiLayer
                         geojson={zppiGeoJson}
+                        fishFilter={fishFilter}
                         onZoneOpenChange={onZoneOpenChange}
                     />
                 )}

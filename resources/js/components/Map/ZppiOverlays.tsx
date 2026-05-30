@@ -1,5 +1,6 @@
-import { useEffect, useState, type ComponentType } from 'react';
 import type { FeatureCollection } from 'geojson';
+import { useEffect, useState } from 'react';
+import type { ComponentType } from 'react';
 import type { MapLayer } from '@/components/Map/MapHeader';
 import type { SearchTarget } from '@/components/Map/ZppiOverlaysLeaflet';
 
@@ -10,6 +11,7 @@ interface Props {
     chlFileUrl: string | null;
     activeLayer: MapLayer;
     searchTarget: SearchTarget | null;
+    fishFilter: string | null;
     onZoneOpenChange?: (open: boolean) => void;
 }
 
@@ -22,7 +24,9 @@ export default function ZppiOverlays(props: Props) {
         import('./ZppiOverlaysLeaflet').then((m) => setImpl(() => m.default));
     }, []);
 
-    if (!Impl) return null;
+    if (!Impl) {
+        return null;
+    }
 
     return <Impl {...props} />;
 }
