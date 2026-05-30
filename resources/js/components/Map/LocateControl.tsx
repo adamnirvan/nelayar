@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Marker, Popup, useMap } from 'react-leaflet';
 import { useNavigation } from './NavigationContext';
 
@@ -15,14 +15,20 @@ const createUserIcon = () => {
 
 export default function LocateControl() {
     const map = useMap();
-    const { setUserPosition } = useNavigation();
+    const { userPosition, setUserPosition } = useNavigation();
     const [position, setPosition] = useState<[number, number] | null>(null);
     const [isLocating, setIsLocating] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const autoRequested = useRef<boolean>(false);
 
-    const handleLocate = () => {
+    // Meminta lokasi pengguna ke browser.
+    // - `fly`   : terbangkan kamera ke posisi (dipakai saat tombol ditekan manual).
+    // - `silent`: jangan tampilkan pesan error (dipakai saat permintaan otomatis).
+    const locate = ({ fly = true, silent = false } = {}) => {
         if (!('geolocation' in navigator)) {
-            setError('Perangkat tidak mendukung geolokasi.');
+            if (!silent) {
+                setError('Perangkat tidak mendukung geolokasi.');
+            }
 
             return;
         }
@@ -39,20 +45,42 @@ export default function LocateControl() {
                 setPosition(coords);
                 setUserPosition({ lat: coords[0], lng: coords[1] });
                 setIsLocating(false);
+
                 // Animasi terbang ke posisi pengguna
-                map.flyTo(coords, 11, { duration: 1.5 });
+                if (fly) {
+                    map.flyTo(coords, 11, { duration: 1.5 });
+                }
             },
             (err) => {
                 setIsLocating(false);
-                setError(
-                    err.code === err.PERMISSION_DENIED
-                        ? 'Izin lokasi ditolak.'
-                        : 'Gagal mendapatkan lokasi.',
-                );
+
+                if (!silent) {
+                    setError(
+                        err.code === err.PERMISSION_DENIED
+                            ? 'Izin lokasi ditolak.'
+                            : 'Gagal mendapatkan lokasi.',
+                    );
+                }
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
         );
     };
+
+    // Begitu peta dimuat, minta lokasi pengguna bila belum diketahui — sehingga
+    // browser langsung menanyakan izin dan rute siap dihitung tanpa klik manual.
+    // Tanpa fly agar tampilan awal peta tidak tergeser; error disembunyikan agar
+    // penolakan izin tidak memunculkan pesan merah saat halaman baru terbuka.
+    useEffect(() => {
+        if (autoRequested.current || userPosition) {
+            return;
+        }
+
+        autoRequested.current = true;
+        locate({ fly: false, silent: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleLocate = () => locate({ fly: true });
 
     return (
         <>
