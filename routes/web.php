@@ -16,9 +16,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password', fn () => Inertia::render('Auth/ResetPassword'))->name('password.reset');
 });
 
-// 1. RUTE SEMENTARA: Langsung arahkan ke halaman Login karena Landing Page belum siap
-Route::redirect('/', '/login')->name('home');
-
 // Rute Undangan Tim (Bawaan starter kit)
 Route::middleware(['auth'])->group(function () {
     Route::get('invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])
