@@ -26,14 +26,12 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
 // Rute Kanvas UI React
         Route::get('/map', [MapController::class, 'index'])->name('map.index');
-        Route::get('/weather', [WeatherController::class, 'view'])->name('weather.view');
-        Route::get('/prices', [PricesController::class, 'view'])->name('prices.view');
+        Route::get('/weather', [WeatherController::class, 'index'])->name('weather.view');
+        Route::get('/prices', [PricesController::class, 'index'])->name('prices.view');
 
         // Rute Suplai Data API untuk komponen React
         Route::get('/api/map/forecast', [MapController::class, 'forecast'])->name('api.map.forecast');
         Route::get('/api/map/zppi', [MapController::class, 'getZppi'])->name('api.map.zppi');
-        Route::get('/api/weather', [WeatherController::class, 'index'])->name('api.weather.index');
-        Route::get('/api/prices', [PricesController::class, 'index'])->name('api.prices.index');
 });
 
 require __DIR__.'/settings.php';
