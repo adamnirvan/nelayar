@@ -87,8 +87,8 @@ export default function ZoneDetailSidebar({
                     {props?.ikan_cocok?.map((ikan: any, idx: number) => {
                         // Mencocokkan gambar ikan statis berdasarkan nama
                         const imgPath = ikan.image_path
-                            ? `/storage${ikan.image_path}` // Ini akan menjadi /storage/images/fishes/cakalang.png
-                            : '/storage/images/fishes/default.png';
+                            ? `/${ikan.image_path}` // Ini akan menjadi /storage/images/fishes/cakalang.png
+                            : '/fish/default.png';
 
                         return (
                             <div

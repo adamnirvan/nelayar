@@ -231,8 +231,8 @@ export default function MapHeader({
 
                             {matchedFish.map((fish) => {
                                 const imgPath = fish.image_path
-                                    ? `/storage${fish.image_path}`
-                                    : '/storage/images/fishes/default.png';
+                                    ? `/${fish.image_path}`
+                                    : '/fish/default.png';
 
                                 return (
                                     <button

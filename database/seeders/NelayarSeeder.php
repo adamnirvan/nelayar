@@ -30,14 +30,14 @@ class NelayarSeeder extends Seeder
                 'nama_lain'   => 'Skipjack Tuna',
                 'nama_ilmiah' => 'Katsuwonus pelamis',
                 'confidence'  => 0.82,
-                'image_path'  => '/images/fishes/cakalang.png',
+                'image_path'  => 'fish/cakalang.png',
             ],
             [
                 'nama_lokal'  => 'Tongkol',
                 'nama_lain'   => 'Mackerel Tuna',
                 'nama_ilmiah' => 'Euthynnus affinis',
                 'confidence'  => 0.71,
-                'image_path'  => '/images/fishes/tongkol.png',
+                'image_path'  => 'fish/tongkol.png',
             ],
         ];
     }
