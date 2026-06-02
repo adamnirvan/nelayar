@@ -1,7 +1,7 @@
 import type { Feature } from 'geojson';
 import L from 'leaflet';
-import { formatEta, useNavigation } from './NavigationContext';
-import type { LatLng } from './NavigationContext';
+import { formatEta, formatRupiah, useNavigation } from './NavigationContext';
+import type { FuelType, LatLng } from './NavigationContext';
 
 interface ZoneDetailSidebarProps {
     zone: Feature;
@@ -60,11 +60,11 @@ export default function ZoneDetailSidebar({
                 </h3>
                 <ul className="space-y-2 text-sm text-gray-800">
                     <li className="flex justify-between">
-                        <span>🌡️ Suhu Permukaan</span>
+                        <span>Suhu Permukaan</span>
                         <span className="font-bold">{props?.sst_rata}°C</span>
                     </li>
                     <li className="flex justify-between">
-                        <span>🌿 Klorofil-a</span>
+                        <span>Klorofil-a</span>
                         <span className="font-bold">
                             {props?.chl_rata !== 'N/A'
                                 ? `${props?.chl_rata} mg/m³`
@@ -72,7 +72,7 @@ export default function ZoneDetailSidebar({
                         </span>
                     </li>
                     <li className="flex justify-between">
-                        <span>📅 Tanggal Data</span>
+                        <span>Tanggal Data</span>
                         <span className="font-bold">{props?.zone_date}</span>
                     </li>
                 </ul>
@@ -146,7 +146,7 @@ export default function ZoneDetailSidebar({
                     (nav.status === 'planned' || nav.status === 'active') && (
                         <div className="glass-inset mb-3 rounded-xl p-4 shadow-inner">
                             <div className="flex justify-between text-sm text-gray-800">
-                                <span>📏 Jarak Tempuh</span>
+                                <span>Jarak Tempuh</span>
                                 <span className="font-bold">
                                     {nav.distanceKm != null
                                         ? `${nav.distanceKm.toFixed(1)} km`
@@ -154,10 +154,75 @@ export default function ZoneDetailSidebar({
                                 </span>
                             </div>
                             <div className="mt-2 flex justify-between text-sm text-gray-800">
-                                <span>⏱️ Estimasi Waktu</span>
+                                <span>Estimasi Waktu</span>
                                 <span className="font-bold">
                                     {formatEta(nav.etaHours)}
                                 </span>
+                            </div>
+
+                            {/* Estimasi biaya BBM pulang-pergi (pilih jenis) */}
+                            <div className="mt-3 border-t border-white/40 pt-3">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <span className="text-sm text-gray-800">
+                                        Estimasi BBM (PP)
+                                    </span>
+                                    <div className="flex overflow-hidden rounded-lg border border-white/50 text-[11px] font-semibold">
+                                        {(
+                                            ['solar', 'pertalite'] as FuelType[]
+                                        ).map((type) => (
+                                            <button
+                                                key={type}
+                                                onClick={() =>
+                                                    nav.setFuelType(type)
+                                                }
+                                                className={`px-2.5 py-1 capitalize transition-colors ${
+                                                    nav.fuelType === type
+                                                        ? 'bg-slate-700 text-white'
+                                                        : 'bg-white/40 text-gray-700 hover:bg-white/60'
+                                                }`}
+                                            >
+                                                {type === 'solar'
+                                                    ? 'Solar'
+                                                    : 'Pertalite'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-lg font-bold text-gray-900">
+                                        {formatRupiah(
+                                            nav.fuelEstimate?.cost ?? null,
+                                        )}
+                                    </span>
+                                    {nav.fuelEstimate && (
+                                        <span className="text-xs text-gray-600">
+                                            ±{nav.fuelEstimate.liters.toFixed(1)}{' '}
+                                            L
+                                        </span>
+                                    )}
+                                </div>
+
+                                {nav.fuelEstimate?.pricePerLiter != null ? (
+                                    <p className="mt-1 text-[11px] text-gray-500">
+                                        {formatRupiah(
+                                            nav.fuelEstimate.pricePerLiter,
+                                        )}
+                                        /L
+                                        {nav.fuelPrices &&
+                                            ` • ${nav.fuelPrices.province}`}
+                                        {nav.fuelPrices?.source === 'national' &&
+                                            ' (rata-rata)'}
+                                    </p>
+                                ) : (
+                                    <p className="mt-1 text-[11px] text-amber-700">
+                                        Harga{' '}
+                                        {nav.fuelType === 'solar'
+                                            ? 'Solar'
+                                            : 'Pertalite'}{' '}
+                                        tidak tersedia untuk wilayah ini.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}

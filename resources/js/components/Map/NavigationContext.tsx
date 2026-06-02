@@ -1,6 +1,12 @@
 import axios from 'axios';
 import type { Feature } from 'geojson';
-import { createContext, useCallback, useContext, useState } from 'react';
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useMemo,
+    useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 export type LatLng = { lat: number; lng: number };
@@ -11,6 +17,30 @@ export type NavStatus = 'idle' | 'planning' | 'planned' | 'active' | 'error';
 // Asumsi kecepatan jelajah perahu nelayan (~10 knot) untuk estimasi ETA.
 const BOAT_SPEED_KMH = 18;
 
+// Asumsi konsumsi BBM perahu motor tempel kecil (~15 PK): ~0.4 liter per km.
+const LITERS_PER_KM = 0.4;
+
+export type FuelType = 'pertalite' | 'solar';
+
+// Harga BBM yang dilampirkan backend pada respons rute (Rupiah/liter).
+export interface FuelPrices {
+    province: string;
+    province_slug: string | null;
+    source: 'province' | 'national';
+    pertalite: number | null;
+    solar: number | null;
+    updated_at: string | null;
+}
+
+// Estimasi biaya BBM perjalanan pulang-pergi untuk satu jenis bahan bakar.
+export interface FuelEstimate {
+    fuelType: FuelType;
+    pricePerLiter: number | null;
+    roundTripKm: number;
+    liters: number;
+    cost: number | null;
+}
+
 interface NavState {
     status: NavStatus;
     origin: LatLng | null;
@@ -18,6 +48,7 @@ interface NavState {
     routeGeoJson: Feature | null;
     distanceKm: number | null;
     etaHours: number | null;
+    fuelPrices: FuelPrices | null;
     error: string | null;
 }
 
@@ -27,6 +58,9 @@ interface NavContextValue extends NavState {
     planRoute: (destination: LatLng) => Promise<void>;
     confirmDeparture: () => void;
     cancelNavigation: () => void;
+    fuelType: FuelType;
+    setFuelType: (t: FuelType) => void;
+    fuelEstimate: FuelEstimate | null;
 }
 
 const initialState: NavState = {
@@ -36,6 +70,7 @@ const initialState: NavState = {
     routeGeoJson: null,
     distanceKm: null,
     etaHours: null,
+    fuelPrices: null,
     error: null,
 };
 
@@ -44,6 +79,7 @@ const NavigationContext = createContext<NavContextValue | null>(null);
 export function NavigationProvider({ children }: { children: ReactNode }) {
     const [userPosition, setUserPosition] = useState<LatLng | null>(null);
     const [state, setState] = useState<NavState>(initialState);
+    const [fuelType, setFuelType] = useState<FuelType>('solar');
 
     const planRoute = useCallback(
         async (destination: LatLng) => {
@@ -94,6 +130,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
                     routeGeoJson: data.route as Feature,
                     distanceKm,
                     etaHours,
+                    fuelPrices: (data.fuel as FuelPrices) ?? null,
                     error: null,
                 });
             } catch (e: unknown) {
@@ -118,6 +155,25 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         setState(initialState);
     }, []);
 
+    // Estimasi biaya BBM pulang-pergi: jarak ×2 × konsumsi × harga/liter.
+    const fuelEstimate = useMemo<FuelEstimate | null>(() => {
+        if (state.distanceKm == null) {
+            return null;
+        }
+
+        const roundTripKm = state.distanceKm * 2;
+        const liters = roundTripKm * LITERS_PER_KM;
+        const pricePerLiter = state.fuelPrices?.[fuelType] ?? null;
+
+        return {
+            fuelType,
+            pricePerLiter,
+            roundTripKm,
+            liters,
+            cost: pricePerLiter != null ? liters * pricePerLiter : null,
+        };
+    }, [state.distanceKm, state.fuelPrices, fuelType]);
+
     return (
         <NavigationContext.Provider
             value={{
@@ -127,6 +183,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
                 planRoute,
                 confirmDeparture,
                 cancelNavigation,
+                fuelType,
+                setFuelType,
+                fuelEstimate,
             }}
         >
             {children}
@@ -161,4 +220,17 @@ export function formatEta(hours: number | null): string {
     }
 
     return `${h} jam ${m} mnt`;
+}
+
+// Helper format Rupiah (tanpa desimal) untuk biaya BBM.
+export function formatRupiah(value: number | null): string {
+    if (value == null) {
+        return '—';
+    }
+
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(value);
 }
