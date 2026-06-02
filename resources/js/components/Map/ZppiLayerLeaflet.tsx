@@ -1,8 +1,10 @@
 import type { FeatureCollection, Feature } from 'geojson';
 import L from 'leaflet';
-import { useState, useMemo, useEffect } from 'react';
-import { GeoJSON, Marker, useMap } from 'react-leaflet';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Circle, GeoJSON, Marker, useMap } from 'react-leaflet';
 import { featureHasFish } from '@/lib/fishSearch';
+import { findPointsWithinExpandingRadius } from '@/lib/geo';
+import { useNavigation } from './NavigationContext';
 import ZoneDetailSidebar from './ZoneDetailSidebar';
 
 // Ikon kustom menggunakan CSS murni (tanpa file gambar .png)
@@ -10,6 +12,16 @@ const createPulsingIcon = () => {
     return L.divIcon({
         className: 'pulsing-marker-wrapper',
         html: '<div class="pulsing-marker"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+    });
+};
+
+// Ikon untuk zona yang berada di dalam radius pencarian pengguna (emas berdenyut).
+const createNearbyIcon = () => {
+    return L.divIcon({
+        className: 'nearby-marker-wrapper',
+        html: '<div class="nearby-marker"></div>',
         iconSize: [24, 24],
         iconAnchor: [12, 12],
     });
@@ -27,6 +39,7 @@ export default function ZppiLayerLeaflet({
     onZoneOpenChange,
 }: Props) {
     const map = useMap();
+    const { userPosition } = useNavigation();
     const [selectedZone, setSelectedZone] = useState<Feature | null>(null);
     const [selectedCenter, setSelectedCenter] = useState<{
         lat: number;
@@ -85,6 +98,61 @@ export default function ZppiLayerLeaflet({
         );
     }, [zonesWithCenters, fishFilter]);
 
+    // Setelah lokasi pengguna didapat, cari semua zona di dalam radius pencarian
+    // yang melebar otomatis (30 km; melebar hingga zona terdekat, maks 2500 km).
+    const nearby = useMemo(() => {
+        if (!userPosition) {
+            return null;
+        }
+
+        const points = visibleZones.map((z) => ({
+            lat: z.center!.lat,
+            lng: z.center!.lng,
+        }));
+
+        return findPointsWithinExpandingRadius(userPosition, points, {
+            minKm: 0,
+            maxKm: 50,
+        });
+    }, [userPosition, visibleZones]);
+
+    const nearbySet = useMemo(
+        () => new Set(nearby?.nearby ?? []),
+        [nearby],
+    );
+
+    // Kunjungan pertama: begitu zona terdekat ditemukan, fokuskan peta ke pengguna
+    // beserta zona-zona di dalam radius. Hanya sekali agar tidak mengganggu navigasi.
+    const didFitNearby = useRef<boolean>(false);
+
+    useEffect(() => {
+        if (
+            didFitNearby.current ||
+            !userPosition ||
+            !nearby ||
+            nearby.nearby.length === 0
+        ) {
+            return;
+        }
+
+        didFitNearby.current = true;
+
+        const points: [number, number][] = [
+            [userPosition.lat, userPosition.lng],
+            ...nearby.nearby.map((i) => {
+                const c = visibleZones[i].center!;
+
+                return [c.lat, c.lng] as [number, number];
+            }),
+        ];
+
+        map.flyToBounds(L.latLngBounds(points), {
+            padding: [80, 80],
+            maxZoom: 11,
+            duration: 1.2,
+        });
+    }, [userPosition, nearby, visibleZones, map]);
+
     // Saat filter berganti, tutup sidebar zona agar marker hasil filter terlihat.
     // Pola "menyesuaikan state saat prop berubah" (tanpa effect) sesuai anjuran React.
     const [prevFilter, setPrevFilter] = useState<string | null>(fishFilter);
@@ -136,13 +204,33 @@ export default function ZppiLayerLeaflet({
 
     return (
         <>
-            {/* KONDISI 1: Tampilkan Marker Berdenyut (Jika belum ada zona yang dipilih) */}
+            {/* Lingkaran radius pencarian di sekitar pengguna (kunjungan pertama) */}
+            {!selectedZone && userPosition && nearby && nearby.nearby.length > 0 && (
+                <Circle
+                    center={[userPosition.lat, userPosition.lng]}
+                    radius={nearby.radiusKm * 1000}
+                    pathOptions={{
+                        color: '#d97706', // Amber
+                        weight: 1.5,
+                        fillColor: '#f59e0b',
+                        fillOpacity: 0.06,
+                        dashArray: '6 6',
+                    }}
+                />
+            )}
+
+            {/* KONDISI 1: Tampilkan Marker Berdenyut (Jika belum ada zona yang dipilih).
+                Zona di dalam radius pengguna disorot dengan ikon emas. */}
             {!selectedZone &&
                 visibleZones.map((zone, idx) => (
                     <Marker
                         key={`marker-${idx}`}
                         position={zone.center!}
-                        icon={createPulsingIcon()}
+                        icon={
+                            nearbySet.has(idx)
+                                ? createNearbyIcon()
+                                : createPulsingIcon()
+                        }
                         eventHandlers={{ click: () => handleZoneClick(zone) }}
                     />
                 ))}
