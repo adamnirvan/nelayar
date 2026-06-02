@@ -3,92 +3,17 @@
 namespace Database\Seeders;
 
 use App\Models\FishPrice;
-use App\Models\OceanData;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class NelayarSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedZppiZone();
-        $this->seedForecast();
+        // Fungsi seedZppiZone() dan seedForecast() milik Brian dibuang
+        // karena skema kolom sudah berevolusi dan data satelit akan ditarik 
+        // secara dinamis melalui OceanService (Tinker).
+        
         $this->seedFishPrices();
-    }
-
-    private function seedZppiZone(): void
-    {
-        $today = now()->toDateString();
-
-        $oceanData = OceanData::create([
-            'data_date'  => $today,
-            'lat_min'    => -11.0,
-            'lat_max'    => 6.0,
-            'lon_min'    => 95.0,
-            'lon_max'    => 141.0,
-            'source'     => 'CMEMS-seed',
-            'fetched_at' => now(),
-        ]);
-
-        // Banda Sea + Java Sea demo zones (simplified boxes)
-        $multipolygon = json_encode([
-            'type' => 'MultiPolygon',
-            'coordinates' => [
-                // Banda Sea zone
-                [[[124.0, -6.0], [128.0, -6.0], [128.0, -3.0], [124.0, -3.0], [124.0, -6.0]]],
-                // Java Sea zone
-                [[[107.0, -6.5], [112.0, -6.5], [112.0, -4.0], [107.0, -4.0], [107.0, -6.5]]],
-                // Flores Sea zone
-                [[[118.0, -9.0], [123.0, -9.0], [123.0, -6.5], [118.0, -6.5], [118.0, -9.0]]],
-            ],
-        ]);
-
-        DB::statement("
-            INSERT INTO zppi_zones
-                (ocean_data_id, zone_date, sst_min, sst_max, chl_threshold, confidence, geom, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ST_GeomFromGeoJSON(?), now(), now())
-        ", [$oceanData->id, $today, 26.0, 30.0, 0.2, 0.72, $multipolygon]);
-    }
-
-    private function seedForecast(): void
-    {
-        $today = now()->toDateString();
-
-        $oceanData = OceanData::create([
-            'data_date'  => $today,
-            'lat_min'    => -11.0,
-            'lat_max'    => 6.0,
-            'lon_min'    => 95.0,
-            'lon_max'    => 141.0,
-            'source'     => 'CMEMS-forecast-seed',
-            'fetched_at' => now(),
-        ]);
-
-        // Slightly shift the zone each day to simulate movement
-        for ($offset = 1; $offset <= 10; $offset++) {
-            $forecastDate = now()->addDays($offset)->toDateString();
-            $shift        = $offset * 0.3; // degrees east per day
-            $confidence   = round(max(0.3, 0.72 - $offset * 0.04), 2);
-
-            $multipolygon = json_encode([
-                'type' => 'MultiPolygon',
-                'coordinates' => [
-                    [[
-                        [124.0 + $shift, -6.0],
-                        [128.0 + $shift, -6.0],
-                        [128.0 + $shift, -3.0],
-                        [124.0 + $shift, -3.0],
-                        [124.0 + $shift, -6.0],
-                    ]],
-                ],
-            ]);
-
-            DB::statement("
-                INSERT INTO zppi_forecast
-                    (ocean_data_id, forecast_date, day_offset, confidence, geom, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ST_GeomFromGeoJSON(?), now(), now())
-            ", [$oceanData->id, $forecastDate, $offset, $confidence, $multipolygon]);
-        }
     }
 
     private function seedFishPrices(): void

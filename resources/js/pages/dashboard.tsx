@@ -29,7 +29,7 @@ Dashboard.layout = (props: { currentTeam?: { slug: string } | null }) => ({
     breadcrumbs: [
         {
             title: 'Dashboard',
-            href: props.currentTeam ? dashboard(props.currentTeam.slug) : '/',
+            href: props.currentTeam ? `/teams/${props.currentTeam.slug}` : '/map',
         },
     ],
 });

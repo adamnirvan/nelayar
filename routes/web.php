@@ -17,7 +17,9 @@ Route::middleware('guest')->group(function () {
 });
 
 // 1. RUTE SEMENTARA: Langsung arahkan ke halaman Login karena Landing Page belum siap
-Route::redirect('/', '/login')->name('home');
+Route::get('/', function () {
+    return Inertia::render('Landing');
+})->name('landing');
 
 // Rute Undangan Tim (Bawaan starter kit)
 Route::middleware(['auth'])->group(function () {
