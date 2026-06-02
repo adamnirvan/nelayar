@@ -9,6 +9,7 @@ import MapHeader from '@/components/Map/MapHeader';
 import type { MapLayer } from '@/components/Map/MapHeader';
 import NavigationBanner from '@/components/Map/NavigationBanner';
 import { NavigationProvider } from '@/components/Map/NavigationContext';
+import WeatherCard from '@/components/Map/WeatherCard';
 import ZppiOverlays from '@/components/Map/ZppiOverlays';
 import type { SearchTarget } from '@/components/Map/ZppiOverlaysLeaflet';
 import { buildFishIndex } from '@/lib/fishSearch';
@@ -150,6 +151,13 @@ export default function MapIndex({
                     clearSignal={clearSignal}
                     isSearching={isSearching}
                     sidebarOpen={zoneOpen}
+                />
+
+                {/* Kartu cuaca lokasi pengguna untuk tanggal terpilih (ikut slider) */}
+                <WeatherCard
+                    date={selectedDate}
+                    dateLabel={dayOffset === 0 ? 'Hari Ini' : `H+${dayOffset}`}
+                    hidden={zoneOpen}
                 />
 
                 {/* Banner status perjalanan (tampil saat navigasi berlangsung) */}

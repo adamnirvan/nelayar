@@ -1,9 +1,12 @@
 interface Weather {
-    source: 'bmkg' | 'openmeteo';
+    source: 'openmeteo';
+    date: string;
+    temp_max: number;
+    temp_min: number;
     wind_speed: number;
     wind_direction: string;
     wave_height: number;
-    temperature: number;
+    weather_desc: string | null;
     fetched_at: string;
 }
 
@@ -17,7 +20,15 @@ export default function WeatherPanel({ weather }: Props) {
             <tbody>
                 <tr>
                     <th>Sumber</th>
-                    <td>{weather.source === 'bmkg' ? 'BMKG' : 'Open-Meteo'}</td>
+                    <td>Open-Meteo</td>
+                </tr>
+                <tr>
+                    <th>Tanggal</th>
+                    <td>{weather.date}</td>
+                </tr>
+                <tr>
+                    <th>Kondisi</th>
+                    <td>{weather.weather_desc ?? '-'}</td>
                 </tr>
                 <tr>
                     <th>Kecepatan Angin</th>
@@ -32,8 +43,10 @@ export default function WeatherPanel({ weather }: Props) {
                     <td>{weather.wave_height} m</td>
                 </tr>
                 <tr>
-                    <th>Suhu</th>
-                    <td>{weather.temperature} °C</td>
+                    <th>Suhu Maks / Min</th>
+                    <td>
+                        {weather.temp_max} °C / {weather.temp_min} °C
+                    </td>
                 </tr>
                 <tr>
                     <th>Diperbarui</th>

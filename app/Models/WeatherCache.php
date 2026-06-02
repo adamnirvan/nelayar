@@ -11,6 +11,7 @@ class WeatherCache extends Model
     protected $fillable = [
         'latitude',
         'longitude',
+        'forecast_date',
         'bmkg_data',
         'openmeteo_data',
         'active_source',
@@ -19,9 +20,10 @@ class WeatherCache extends Model
     ];
 
     protected $casts = [
-        'bmkg_data'      => 'array',
+        'forecast_date' => 'date:Y-m-d',
+        'bmkg_data' => 'array',
         'openmeteo_data' => 'array',
-        'fetched_at'     => 'datetime',
-        'expires_at'     => 'datetime',
+        'fetched_at' => 'datetime',
+        'expires_at' => 'datetime',
     ];
 }
