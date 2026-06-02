@@ -15,8 +15,8 @@ interface PriceRow {
     province: string;
     regency: string;
     region_group: string;
-    price: number;
-    price_change_pct: number;
+    price: number | null;
+    price_change_pct: number | null;
     price_date: string;
     period: string;
 }
@@ -29,7 +29,7 @@ interface Stats {
     max_loc: string;
     min_loc: string;
     period: string;
-    change: number;
+    change: number | null;
 }
 
 interface Props {
@@ -40,11 +40,19 @@ interface Props {
     filters: { commodity: string | null; province: string | null };
 }
 
-function formatRupiah(value: number): string {
+function formatRupiah(value: number | null | undefined): string {
+    if (value == null) {
+        return '-';
+    }
+
     return `Rp ${Math.round(value).toLocaleString('id-ID')}`;
 }
 
-function formatChange(pct: number): string {
+function formatChange(pct: number | null | undefined): string {
+    if (pct == null) {
+        return '-';
+    }
+
     const sign = pct > 0 ? '+' : '';
 
     return `${sign}${pct.toFixed(1)}%`;
@@ -222,14 +230,25 @@ export default function PricesIndex({
                                 {formatRupiah(stats.avg)}
                             </p>
                             <p className="mt-1 text-xs font-semibold text-slate-700">
-                                <span
-                                    className={
-                                        stats.change >= 0 ? 'text-emerald-600' : 'text-red-600'
-                                    }
-                                >
-                                    {stats.change >= 0 ? '↑' : '↓'} {formatChange(stats.change)}
-                                </span>{' '}
-                                vs bulan lalu ({stats.period})
+                                {stats.change == null ? (
+                                    <span className="text-slate-500">
+                                        Belum ada data bulan sebelumnya
+                                    </span>
+                                ) : (
+                                    <>
+                                        <span
+                                            className={
+                                                stats.change >= 0
+                                                    ? 'text-emerald-600'
+                                                    : 'text-red-600'
+                                            }
+                                        >
+                                            {stats.change >= 0 ? '↑' : '↓'}{' '}
+                                            {formatChange(stats.change)}
+                                        </span>{' '}
+                                        vs bulan lalu ({stats.period})
+                                    </>
+                                )}
                             </p>
                         </StatCard>
 
@@ -303,9 +322,11 @@ export default function PricesIndex({
                                                 <td className="px-5 py-3.5">
                                                     <span
                                                         className={`font-semibold ${
-                                                            row.price_change_pct >= 0
-                                                                ? 'text-emerald-600'
-                                                                : 'text-red-600'
+                                                            row.price_change_pct == null
+                                                                ? 'text-slate-500'
+                                                                : row.price_change_pct >= 0
+                                                                  ? 'text-emerald-600'
+                                                                  : 'text-red-600'
                                                         }`}
                                                     >
                                                         {formatChange(row.price_change_pct)}
