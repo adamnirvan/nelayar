@@ -17,6 +17,7 @@ createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'Landing':
+            case name === 'Prices/Index':
             case name === 'Auth/Register':
             case name === 'Auth/Login':
             case name === 'Auth/ForgotPassword':
@@ -30,7 +31,6 @@ createInertiaApp({
                 return [AppLayout, SettingsLayout];
             case name.startsWith('Map/'):
             case name.startsWith('Weather/'):
-            case name.startsWith('Prices/'):
                 return GisLayout;
             default:
                 return AppLayout;

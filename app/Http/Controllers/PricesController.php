@@ -11,13 +11,15 @@ class PricesController extends Controller
 {
     public function index(Request $request, FishPriceService $prices): Response
     {
+        $commodity = $request->query('commodity');
+        $province = $request->query('province');
+
         return inertia('Prices/Index', [
-            'prices'      => $prices->get(
-                $request->query('commodity'),
-                $request->query('province')
-            ),
+            'prices' => $prices->get($commodity, $province),
+            'stats' => $prices->getStats($commodity, $province),
             'commodities' => FishPrice::distinct()->orderBy('commodity')->pluck('commodity'),
-            'provinces'   => FishPrice::distinct()->orderBy('province')->pluck('province'),
+            'provinces' => FishPrice::distinct()->orderBy('province')->pluck('province'),
+            'filters' => ['commodity' => $commodity, 'province' => $province],
         ]);
     }
 }

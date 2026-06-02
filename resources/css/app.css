@@ -144,6 +144,56 @@
     }
 }
 
+/* ===================================================================== */
+/* Glassmorphism: gaya konsisten untuk seluruh panel UI mengambang        */
+/* ===================================================================== */
+.glass-panel {
+    background-color: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+/* Varian gelap — untuk konten terang (mis. logo putih) di atasnya */
+.glass-panel-dark {
+    background-color: rgba(15, 23, 42, 0.30);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+/* Elemen "terangkat" di dalam panel glass (kartu, chip, tombol aktif) */
+.glass-inset {
+    background-color: rgba(255, 255, 255, 0.30);
+    border: 1px solid rgba(255, 255, 255, 0.40);
+}
+
+/* Samakan kontrol zoom bawaan Leaflet dengan gaya glassmorphism */
+.leaflet-control-zoom.leaflet-bar {
+    border: none !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.leaflet-control-zoom a {
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    font-size: 20px;
+    color: #334155 !important; /* slate-700 */
+    background-color: rgba(255, 255, 255, 0.18) !important;
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+.leaflet-control-zoom a:first-child {
+    border-bottom: none !important;
+}
+.leaflet-control-zoom a:hover {
+    background-color: rgba(255, 255, 255, 0.30) !important;
+    color: #0f172a !important;
+}
+
 /* Efek denyut untuk zona potensi ikan (Biru Tua) */
 .pulsing-marker-wrapper {
     display: flex;
@@ -162,4 +212,44 @@
     0% { box-shadow: 0 0 0 0 rgba(30, 58, 138, 0.7); }
     70% { box-shadow: 0 0 0 15px rgba(30, 58, 138, 0); }
     100% { box-shadow: 0 0 0 0 rgba(30, 58, 138, 0); }
+}
+
+/* Marker posisi pengguna (Hijau Berdenyut) */
+.user-location-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.user-location-marker {
+    width: 16px;
+    height: 16px;
+    background-color: #16a34a; /* Hijau */
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+    animation: pulse-green 1.5s infinite;
+}
+@keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.6); }
+    70% { box-shadow: 0 0 0 14px rgba(22, 163, 74, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+
+/* Penanda titik tujuan rute pelayaran (jangkar) */
+.route-dest-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.route-dest-marker {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    background-color: #ffffff;
+    border: 2px solid #1d4ed8;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }

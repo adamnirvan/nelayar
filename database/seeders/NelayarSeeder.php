@@ -9,9 +9,8 @@ class NelayarSeeder extends Seeder
 {
     public function run(): void
     {
-        // Fungsi seedZppiZone() dan seedForecast() milik Brian dibuang
-        // karena skema kolom sudah berevolusi dan data satelit akan ditarik 
-        // secara dinamis melalui OceanService (Tinker).
+        // Fungsi seedZppiZone() dan seedForecast() dummy milik Brian dibuang
+        // karena sistem parsing GeoJSON dari microservice Python sudah bekerja sempurna.
         
         $this->seedFishPrices();
     }
