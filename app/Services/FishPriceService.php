@@ -154,16 +154,18 @@ class FishPriceService
         return $result;
     }
 
-    /** Daily avg prices over the last 30 days for `get_weekly_trend` action. */
+    /** Monthly avg prices for the most recent 12 months (chronological) for the trend chart. */
     public function getWeeklyTrend(string $commodity): array
     {
         return FishPrice::where('commodity', $commodity)
             ->whereNull('regency')
-            ->selectRaw("TO_CHAR(price_date, 'DD Mon YYYY') as label, price_date, AVG(price) as price")
-            ->groupBy('price_date')
-            ->orderBy('price_date')
-            ->limit(30)
+            ->selectRaw("TO_CHAR(DATE_TRUNC('month', price_date), 'Mon YY') as label, DATE_TRUNC('month', price_date) as sort_date, AVG(price) as price")
+            ->groupByRaw("DATE_TRUNC('month', price_date)")
+            ->orderByDesc('sort_date')
+            ->limit(12)
             ->get()
+            ->reverse()
+            ->values()
             ->map(fn($row) => ['label' => $row->label, 'price' => (int) round($row->price)])
             ->toArray();
     }
