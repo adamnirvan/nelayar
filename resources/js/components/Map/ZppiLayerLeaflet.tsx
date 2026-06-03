@@ -4,8 +4,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { GeoJSON, Marker, useMap } from 'react-leaflet';
 import { featureHasFish } from '@/lib/fishSearch';
 import ZoneDetailSidebar from './ZoneDetailSidebar';
+import { AnimatePresence } from 'framer-motion';
 
-// Ikon kustom menggunakan CSS murni (tanpa file gambar .png)
+// [BARU] 1. Mengimpor Context Navigasi
+import { useNavigation } from './NavigationContext'; 
+
 const createPulsingIcon = () => {
     return L.divIcon({
         className: 'pulsing-marker-wrapper',
@@ -27,66 +30,52 @@ export default function ZppiLayerLeaflet({
     onZoneOpenChange,
 }: Props) {
     const map = useMap();
+    
+    // [BARU] 2. Memanggil status navigasi
+    const nav = useNavigation(); 
+    
     const [selectedZone, setSelectedZone] = useState<Feature | null>(null);
     const [selectedCenter, setSelectedCenter] = useState<{
         lat: number;
         lng: number;
     } | null>(null);
 
-    // Beri tahu halaman saat sidebar zona terbuka/tertutup agar header bisa menyesuaikan.
     useEffect(() => {
         onZoneOpenChange?.(selectedZone !== null);
-
         return () => onZoneOpenChange?.(false);
     }, [selectedZone, onZoneOpenChange]);
 
-    // 1. Parsing string koordinat mentah dari Laravel menjadi JSON Object
     const safeGeojson = useMemo(() => {
         if (!geojson || !geojson.features) {
             return { type: 'FeatureCollection', features: [] };
         }
-
         return {
             ...geojson,
             features: geojson.features.map((feature) => ({
                 ...feature,
-                geometry:
-                    typeof feature.geometry === 'string'
-                        ? JSON.parse(feature.geometry)
-                        : feature.geometry,
+                geometry: typeof feature.geometry === 'string' ? JSON.parse(feature.geometry) : feature.geometry,
             })),
         };
     }, [geojson]);
 
-    // 2. Kalkulasi Centroid (Titik Tengah) untuk masing-masing poligon
     const zonesWithCenters = useMemo(() => {
         return safeGeojson.features
             .map((feature) => {
                 const layer = L.geoJSON(feature);
                 const bounds = layer.getBounds();
-
-                // Ambil titik tengah jika koordinatnya valid
                 return {
                     feature,
                     center: bounds.isValid() ? bounds.getCenter() : null,
                 };
             })
-            .filter((z) => z.center !== null); // Buang yang tidak punya titik tengah
+            .filter((z) => z.center !== null);
     }, [safeGeojson]);
 
-    // 2b. Saat filter ikan aktif, hanya tampilkan zona yang memuat spesies tsebut.
     const visibleZones = useMemo(() => {
-        if (!fishFilter) {
-            return zonesWithCenters;
-        }
-
-        return zonesWithCenters.filter((z) =>
-            featureHasFish(z.feature, fishFilter),
-        );
+        if (!fishFilter) return zonesWithCenters;
+        return zonesWithCenters.filter((z) => featureHasFish(z.feature, fishFilter));
     }, [zonesWithCenters, fishFilter]);
 
-    // Saat filter berganti, tutup sidebar zona agar marker hasil filter terlihat.
-    // Pola "menyesuaikan state saat prop berubah" (tanpa effect) sesuai anjuran React.
     const [prevFilter, setPrevFilter] = useState<string | null>(fishFilter);
 
     if (fishFilter !== prevFilter) {
@@ -95,20 +84,10 @@ export default function ZppiLayerLeaflet({
         setSelectedCenter(null);
     }
 
-    // Saat filter aktif, geser & zoom peta agar seluruh zona hasil filter terlihat.
     useEffect(() => {
-        if (!fishFilter) {
-            return;
-        }
-
-        const points = visibleZones
-            .map((z) => z.center)
-            .filter((c): c is L.LatLng => c !== null);
-
-        if (points.length === 0) {
-            return;
-        }
-
+        if (!fishFilter) return;
+        const points = visibleZones.map((z) => z.center).filter((c): c is L.LatLng => c !== null);
+        if (points.length === 0) return;
         map.flyToBounds(L.latLngBounds(points), {
             padding: [80, 80],
             maxZoom: 11,
@@ -116,27 +95,73 @@ export default function ZppiLayerLeaflet({
         });
     }, [fishFilter, visibleZones, map]);
 
-    // 3. Aksi saat Marker Denyut diklik
+
+    // [BARU] 3. EFFECT KAMERA RUTE & NAVIGASI
+    useEffect(() => {
+        // Jika rute belum ada, abaikan perintah kamera
+        if (!nav.routeGeoJson) return;
+
+        if (nav.status === 'planned') {
+            // TAHAP 2: MODE OVERVIEW (Menampilkan keseluruhan rute)
+            const routeLayer = L.geoJSON(nav.routeGeoJson);
+            const routeBounds = routeLayer.getBounds();
+
+            if (routeBounds.isValid()) {
+                const isMobile = window.innerWidth < 768;
+                const padTopLeft: [number, number] = isMobile ? [40, 40] : [420, 40];
+                const padBottomRight: [number, number] = isMobile ? [40, 300] : [40, 40];
+
+                map.flyToBounds(routeBounds, {
+                    paddingTopLeft: padTopLeft,
+                    paddingBottomRight: padBottomRight,
+                    maxZoom: 11, 
+                    duration: 1.5,
+                });
+            }
+        } 
+        else if (nav.status === 'active' && nav.userPosition) {
+            // TAHAP 3: MODE NAVIGASI (Zoom in ekstrem ke lokasi nelayan)
+            const isMobile = window.innerWidth < 768;
+            
+            // Padding agar nelayan tidak tertutup sidebar desktop / bottom sheet
+            const padTopLeft: [number, number] = isMobile ? [0, 0] : [400, 0];
+            const padBottomRight: [number, number] = isMobile ? [0, 200] : [0, 0];
+
+            // Trik: Kita gunakan flyToBounds pada area berukuran 0 (hanya titik user) 
+            // agar fitur padding otomatis Leaflet tetap bisa bekerja!
+            const userPoint = L.latLng(nav.userPosition.lat, nav.userPosition.lng);
+            
+            map.flyToBounds(L.latLngBounds(userPoint, userPoint), {
+                paddingTopLeft: padTopLeft,
+                paddingBottomRight: padBottomRight,
+                maxZoom: 16, // Zoom in sangat dekat!
+                duration: 2.5, // Dibuat sedikit lebih lambat agar dramatis seperti Gmaps
+            });
+        }
+    }, [nav.routeGeoJson, nav.status, nav.userPosition, map]);
+
+
     const handleZoneClick = (zone: any) => {
         setSelectedZone(zone.feature);
-        setSelectedCenter(
-            zone.center ? { lat: zone.center.lat, lng: zone.center.lng } : null,
-        );
+        setSelectedCenter(zone.center ? { lat: zone.center.lat, lng: zone.center.lng } : null);
 
-        // Animasi terbang (FlyTo) ke area poligon
         const layer = L.geoJSON(zone.feature);
         const bounds = layer.getBounds();
-        // Menggeser kamera sedikit ke kanan agar poligon tidak tertutup Sidebar di kiri
+        const isMobile = window.innerWidth < 768;
+        
+        const padTopLeft: [number, number] = isMobile ? [0, 0] : [400, 0]; 
+        const padBottomRight: [number, number] = isMobile ? [0, 250] : [0, 0];
+
         map.flyToBounds(bounds, {
-            paddingBottomRight: [0, 0],
-            paddingTopLeft: [350, 0],
+            paddingTopLeft: padTopLeft,
+            paddingBottomRight: padBottomRight,
+            maxZoom: 10,
             duration: 1.5,
         });
     };
 
     return (
         <>
-            {/* KONDISI 1: Tampilkan Marker Berdenyut (Jika belum ada zona yang dipilih) */}
             {!selectedZone &&
                 visibleZones.map((zone, idx) => (
                     <Marker
@@ -147,14 +172,13 @@ export default function ZppiLayerLeaflet({
                     />
                 ))}
 
-            {/* KONDISI 2: Tampilkan Poligon (Hanya poligon dari zona yang diklik) */}
             {selectedZone && (
                 <GeoJSON
                     key={`selected-${selectedZone.properties?.zone_date}-${selectedCenter?.lat},${selectedCenter?.lng}`}
                     data={selectedZone as Feature}
                     style={{
-                        fillColor: '#3b82f6', // Biru laut cerah
-                        color: '#1e3a8a', // Biru tua
+                        fillColor: '#3b82f6',
+                        color: '#1e3a8a',
                         weight: 2,
                         opacity: 1,
                         fillOpacity: 0.4,
@@ -162,14 +186,35 @@ export default function ZppiLayerLeaflet({
                 />
             )}
 
-            {/* KONDISI 3: Tampilkan Sidebar UI */}
-            {selectedZone && (
-                <ZoneDetailSidebar
-                    zone={selectedZone}
-                    center={selectedCenter}
-                    onClose={() => setSelectedZone(null)}
+            {/* [BARU] 4. GARIS RUTE NAVIGASI */}
+            {/* Merender GeoJSON rute menjadi garis putus-putus ala maritim */}
+            {nav.routeGeoJson && (
+                <GeoJSON
+                    key={`route-${nav.status}-${Date.now()}`}
+                    data={nav.routeGeoJson}
+                    style={{
+                        color: '#0284c7', // Biru cerah (Sky 600)
+                        weight: 4,
+                        dashArray: '8, 8', // Garis putus-putus
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                    }}
                 />
             )}
+
+            <AnimatePresence>
+                {/* Hanya tampil jika ada zona yang dipilih, DAN status navigasi belum active */}
+                {selectedZone && nav.status !== 'active' && (
+                    <ZoneDetailSidebar 
+                        zone={selectedZone} 
+                        center={selectedCenter} 
+                        onClose={() => {
+                            setSelectedZone(null);
+                            nav.cancelNavigation();
+                        }} 
+                    />
+                )}
+            </AnimatePresence>
         </>
     );
 }

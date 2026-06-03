@@ -32,7 +32,7 @@ class RouteService
         $start = escapeshellarg("{$startLat},{$startLng}");
         $end = escapeshellarg("{$endLat},{$endLng}");
 
-        $result = Process::timeout(60)->run("{$pythonPath} {$scriptPath} --start {$start} --end {$end}");
+        $result = Process::timeout(60)->run("{$pythonPath} {$scriptPath} --start={$start} --end={$end}");
 
         if ($result->failed()) {
             Log::error('Sea route failed', ['error' => $result->errorOutput()]);

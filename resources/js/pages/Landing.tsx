@@ -5,6 +5,7 @@ import QuoteSection from '../components/Landing/QuoteSection';
 import TechFeatures from '../components/Landing/TechFeatures';
 import CTASection from '../components/Landing/CTASection';
 import Navbar from '../components/Landing/Navbar';
+import Footer from '../components/Landing/Footer';
 
 export default function Landing() {
     return (
@@ -39,6 +40,8 @@ export default function Landing() {
 
                 {/* 6. Call to Action */}
                 <CTASection />
+
+                <Footer />
             </div>
         </>
     );
