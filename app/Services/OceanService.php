@@ -12,11 +12,13 @@ class OceanService
     /**
      * Fetch CMEMS data for $date, store rasters + ZPPI zones.
      *
+     * @param  string  $date  Tanggal target (Y-m-d).
+     * @param  callable|null  $onProgress  Dipanggil per-baris log diagnostik dari parse_zppi.py (stderr).
      * @return int Jumlah zona (features) yang berhasil disimpan ke zppi_zones.
      *
      * @throws \RuntimeException Jika parser Python gagal atau mengembalikan error.
      */
-    public function fetchAndStore(string $date): int
+    public function fetchAndStore(string $date, ?callable $onProgress = null): int
     {
         $pythonPath = base_path(env('PYTHON_PATH', 'python3'));
         $scriptPath = base_path('microservice/parse_zppi.py');
@@ -36,7 +38,20 @@ class OceanService
             ->toArray();
         $fishJson = escapeshellarg(json_encode($fishProfiles));
 
-        $result = Process::forever()->run("{$pythonPath} {$scriptPath} --date {$date} --fish-profiles {$fishJson}");
+        $result = Process::forever()->run(
+            "{$pythonPath} {$scriptPath} --date {$date} --fish-profiles {$fishJson}",
+            function (string $type, string $buffer) use ($onProgress) {
+                // parse_zppi.py menulis diagnostik ke stderr; stdout dikhususkan untuk JSON.
+                if ($onProgress === null || $type !== 'err') {
+                    return;
+                }
+                foreach (preg_split('/\r\n|\r|\n/', $buffer) as $line) {
+                    if (trim($line) !== '') {
+                        $onProgress(rtrim($line));
+                    }
+                }
+            }
+        );
 
         if ($result->failed()) {
             Log::error('ZPPI parse failed', ['date' => $date, 'error' => $result->errorOutput()]);

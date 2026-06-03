@@ -86,8 +86,12 @@ class SyncOceanForecast extends Command
                 $this->warn("   - Data [{$targetDate}] KOSONG. Memanggil parser Python...");
 
                 try {
-                    // Memicu skrip Python parse_zppi.py dengan argumen --date dinamis
-                    $zoneCount = $service->fetchAndStore($targetDate);
+                    // Memicu skrip Python parse_zppi.py dengan argumen --date dinamis.
+                    // Log diagnostik (stderr) di-stream langsung ke konsol secara real-time.
+                    $zoneCount = $service->fetchAndStore(
+                        $targetDate,
+                        fn (string $line) => $this->line("       <fg=gray>{$line}</>")
+                    );
 
                     if ($zoneCount === 0) {
                         $this->warn("     ⚠ Tanggal {$targetDate} berhasil diproses tetapi 0 zona tersimpan. Cek tabel fish_profiles (jalankan db:seed) atau ambang batas SST/Chl.");
