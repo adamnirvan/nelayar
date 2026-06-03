@@ -22,16 +22,6 @@ class DatabaseSeeder extends Seeder
         
         $this->call([
             FishProfileSeeder::class, 
-            NelayarSeeder::class,     
         ]);
-
-        /* CATATAN ENGINEER:
-         * Kode lama yang membaca file 'sample_zppi.json' telah dihapus.
-         * Skema database zppi_zones sudah berevolusi (kolom sst_min dkk sudah hilang
-         * diganti dengan kolom JSON 'ikan_cocok').
-         * Pengisian data poligon spasial tidak lagi dilakukan lewat Seeder statis,
-         * melainkan disuntikkan secara dinamis menggunakan:
-         * php artisan tinker -> app(\App\Services\OceanService::class)->fetchAndStore('YYYY-MM-DD');
-         */
     }
 }
