@@ -32,7 +32,10 @@ class RouteService
         $start = escapeshellarg("{$startLat},{$startLng}");
         $end = escapeshellarg("{$endLat},{$endLng}");
 
-        $result = Process::timeout(60)->run("{$pythonPath} {$scriptPath} --start {$start} --end {$end}");
+        // Pakai bentuk --start=VALUE (bukan --start VALUE): koordinat lintang Indonesia
+        // bernilai negatif (mis. "-6.2,106.8"), dan argparse menolak token diawali "-"
+        // sebagai nilai argumen biasa ("expected one argument"). Bentuk "=" aman dari ini.
+        $result = Process::timeout(60)->run("{$pythonPath} {$scriptPath} --start={$start} --end={$end}");
 
         if ($result->failed()) {
             Log::error('Sea route failed', ['error' => $result->errorOutput()]);
