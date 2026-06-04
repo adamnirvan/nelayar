@@ -82,9 +82,13 @@ class AuthController extends Controller
             $token->delete();
         }
 
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Only tear down the session for stateful (cookie) requests; token-only
+        // requests (e.g. Postman) have no session store bound to the request.
+        if ($request->hasSession()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json(['message' => 'Logged out successfully.']);
     }
