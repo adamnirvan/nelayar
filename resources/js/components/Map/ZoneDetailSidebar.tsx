@@ -177,17 +177,17 @@ export default function ZoneDetailSidebar({
                     <h3 className="mb-2.5 text-sm font-semibold text-gray-900">Parameter Area</h3>
                     <ul className="space-y-2 text-sm text-gray-800">
                         <li className="flex justify-between">
-                            <span>🌡️ Suhu Permukaan</span>
+                            <span>Suhu Permukaan</span>
                             <span className="font-bold">{props?.sst_rata}°C</span>
                         </li>
                         <li className="flex justify-between">
-                            <span>🌿 Klorofil-a</span>
+                            <span>Klorofil-a</span>
                             <span className="font-bold">
                                 {props?.chl_rata !== 'N/A' ? `${props?.chl_rata} mg/m³` : 'N/A'}
                             </span>
                         </li>
                         <li className="flex justify-between">
-                            <span>📅 Tanggal Data</span>
+                            <span>Tanggal Data</span>
                             <span className="font-bold">{props?.zone_date}</span>
                         </li>
                     </ul>
@@ -222,7 +222,7 @@ export default function ZoneDetailSidebar({
                         {/* FITUR TEMAN: ESTIMASI BBM (Dirombak menyesuaikan desain Glassmorphism-mu) */}
                         <div className="mt-3 border-t border-blue-200/50 pt-3">
                             <div className="mb-2 flex items-center justify-between">
-                                <span className="text-sm text-gray-800">⛽ Estimasi BBM (PP)</span>
+                                <span className="text-sm text-gray-800">Estimasi BBM (PP)</span>
                                 <div className="flex overflow-hidden rounded-lg border border-blue-200 text-[11px] font-semibold">
                                     {(['solar', 'pertalite'] as FuelType[]).map((type) => (
                                         <button

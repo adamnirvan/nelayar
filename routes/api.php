@@ -23,6 +23,7 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->prefix('map')->group(function () {
     Route::get('route', [MapController::class, 'getRoute'])->name('api.map.route');
     Route::get('weather', [WeatherController::class, 'data'])->name('api.map.weather');
+    Route::get('zone/{zone}', [MapController::class, 'showZone'])->name('api.map.zone');
 });
 
 Route::middleware('auth:sanctum')->prefix('prices')->group(function () {

@@ -126,14 +126,20 @@ class OceanService
 
     public function getGeoJsonByDate(string $date): array
     {
-        ini_set('memory_limit', '512M');
         $oceanData = DB::table('ocean_data')->where('data_date', $date)->first();
 
-        // SELECT KOLOM MURNI
+        // Peta hanya menampilkan MARKER di titik pusat tiap zona; poligon penuh
+        // baru dibutuhkan saat satu zona diklik (lihat getZoneById). Maka di sini
+        // kita kirim centroid (ST_PointOnSurface, dijamin berada di dalam zona)
+        // + propertinya saja. Ini memangkas payload awal dari ~1 MB poligon
+        // menjadi ratusan KB titik, sehingga FCP/LCP & parsing klien jauh lebih ringan.
         $rows = DB::select('
-            SELECT ST_AsGeoJSON(geom) as geojson, confidence, ikan_cocok, sst_rata, chl_rata, zone_date::text
-            FROM zppi_zones
-            WHERE zone_date = ? 
+            SELECT id, ST_X(pt) AS lng, ST_Y(pt) AS lat, confidence, ikan_cocok, sst_rata, chl_rata, zone_date::text
+            FROM (
+                SELECT id, ST_PointOnSurface(geom) AS pt, confidence, ikan_cocok, sst_rata, chl_rata, zone_date, created_at
+                FROM zppi_zones
+                WHERE zone_date = ?
+            ) s
             ORDER BY created_at DESC
         ', [$date]);
 
@@ -144,8 +150,12 @@ class OceanService
         $features = array_map(function ($row) {
             return [
                 'type' => 'Feature',
-                'geometry' => $row->geojson,
+                'geometry' => [
+                    'type' => 'Point',
+                    'coordinates' => [(float) $row->lng, (float) $row->lat],
+                ],
                 'properties' => [
+                    'id' => $row->id, // dipakai frontend untuk mengambil poligon penuh saat diklik
                     'confidence' => $row->confidence,
                     'zone_date' => $row->zone_date,
                     'ikan_cocok' => json_decode($row->ikan_cocok, true) ?? [],
@@ -160,6 +170,37 @@ class OceanService
             'features' => $features,
             'sst_file_path' => $oceanData?->sst_file_path ? asset($oceanData->sst_file_path) : null,
             'chl_file_path' => $oceanData?->chl_file_path ? asset($oceanData->chl_file_path) : null,
+        ];
+    }
+
+    /**
+     * Ambil satu zona lengkap dengan geometri poligonnya (GeoJSON Feature).
+     * Dipanggil lazy oleh frontend saat sebuah marker zona diklik, sehingga
+     * geometri berat tidak ikut dikirim pada muatan awal peta.
+     */
+    public function getZoneById(int $id): ?array
+    {
+        $row = DB::selectOne('
+            SELECT ST_AsGeoJSON(geom) AS geojson, confidence, ikan_cocok, sst_rata, chl_rata, zone_date::text
+            FROM zppi_zones
+            WHERE id = ?
+        ', [$id]);
+
+        if (! $row) {
+            return null;
+        }
+
+        return [
+            'type' => 'Feature',
+            'geometry' => json_decode($row->geojson, true),
+            'properties' => [
+                'id' => $id,
+                'confidence' => $row->confidence,
+                'zone_date' => $row->zone_date,
+                'ikan_cocok' => json_decode($row->ikan_cocok, true) ?? [],
+                'sst_rata' => $row->sst_rata,
+                'chl_rata' => $row->chl_rata,
+            ],
         ];
     }
 }

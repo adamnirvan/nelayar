@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ZppiZone;
 use App\Services\FuelPriceService;
 use App\Services\OceanService;
 use App\Services\RouteService;
@@ -41,6 +42,22 @@ class MapController extends Controller
             'sstFileUrl' => $sstUrl,
             'chlFileUrl' => $chlUrl,
         ]);
+    }
+
+    /**
+     * Kembalikan satu zona ZPPI lengkap dengan geometri poligonnya.
+     * Dipanggil lazy oleh frontend (via axios) saat sebuah marker zona diklik,
+     * agar muatan awal peta cukup mengirim centroid saja (lihat OceanService).
+     */
+    public function showZone(ZppiZone $zone, OceanService $ocean): JsonResponse
+    {
+        $feature = $ocean->getZoneById($zone->id);
+
+        if ($feature === null) {
+            return response()->json(['error' => 'Zona tidak ditemukan.'], 404);
+        }
+
+        return response()->json($feature);
     }
 
     /**
