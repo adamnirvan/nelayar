@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\MapController;
+use App\Http\Controllers\PricesController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,4 +23,8 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->prefix('map')->group(function () {
     Route::get('route', [MapController::class, 'getRoute'])->name('api.map.route');
     Route::get('weather', [WeatherController::class, 'data'])->name('api.map.weather');
+});
+
+Route::middleware('auth:sanctum')->prefix('prices')->group(function () {
+    Route::get('/', [PricesController::class, 'data'])->name('api.prices.index');
 });
