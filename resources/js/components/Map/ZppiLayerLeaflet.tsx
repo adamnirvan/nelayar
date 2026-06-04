@@ -1,18 +1,27 @@
 import type { FeatureCollection, Feature } from 'geojson';
 import L from 'leaflet';
-import { useState, useMemo, useEffect } from 'react';
-import { GeoJSON, Marker, useMap } from 'react-leaflet';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Circle, GeoJSON, Marker, useMap } from 'react-leaflet';
 import { featureHasFish } from '@/lib/fishSearch';
+import { findPointsWithinExpandingRadius } from '@/lib/geo';
+import { useNavigation } from './NavigationContext';
 import ZoneDetailSidebar from './ZoneDetailSidebar';
 import { AnimatePresence } from 'framer-motion';
-
-// [BARU] 1. Mengimpor Context Navigasi
-import { useNavigation } from './NavigationContext'; 
 
 const createPulsingIcon = () => {
     return L.divIcon({
         className: 'pulsing-marker-wrapper',
         html: '<div class="pulsing-marker"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+    });
+};
+
+// Ikon untuk zona yang berada di dalam radius pencarian pengguna (emas berdenyut).
+const createNearbyIcon = () => {
+    return L.divIcon({
+        className: 'nearby-marker-wrapper',
+        html: '<div class="nearby-marker"></div>',
         iconSize: [24, 24],
         iconAnchor: [12, 12],
     });
@@ -31,8 +40,9 @@ export default function ZppiLayerLeaflet({
 }: Props) {
     const map = useMap();
     
-    // [BARU] 2. Memanggil status navigasi
+    // GABUNGAN: Mengambil seluruh object nav (untuk fiturmu) dan mengekstrak userPosition (untuk fitur temanmu)
     const nav = useNavigation(); 
+    const userPosition = nav.userPosition;
     
     const [selectedZone, setSelectedZone] = useState<Feature | null>(null);
     const [selectedCenter, setSelectedCenter] = useState<{
@@ -76,6 +86,59 @@ export default function ZppiLayerLeaflet({
         return zonesWithCenters.filter((z) => featureHasFish(z.feature, fishFilter));
     }, [zonesWithCenters, fishFilter]);
 
+    // FITUR TEMAN: Mencari semua zona di dalam radius pencarian yang melebar otomatis (maks 50 km)
+    const nearby = useMemo(() => {
+        if (!userPosition) {
+            return null;
+        }
+
+        const points = visibleZones.map((z) => ({
+            lat: z.center!.lat,
+            lng: z.center!.lng,
+        }));
+
+        return findPointsWithinExpandingRadius(userPosition, points, {
+            minKm: 0,
+            maxKm: 500,
+        });
+    }, [userPosition, visibleZones]);
+
+    const nearbySet = useMemo(
+        () => new Set(nearby?.nearby ?? []),
+        [nearby],
+    );
+
+    // FITUR TEMAN: Kunjungan pertama: fokuskan peta ke pengguna beserta zona-zona terdekat
+    const didFitNearby = useRef<boolean>(false);
+
+    useEffect(() => {
+        if (
+            didFitNearby.current ||
+            !userPosition ||
+            !nearby ||
+            nearby.nearby.length === 0
+        ) {
+            return;
+        }
+
+        didFitNearby.current = true;
+
+        const points: [number, number][] = [
+            [userPosition.lat, userPosition.lng],
+            ...nearby.nearby.map((i) => {
+                const c = visibleZones[i].center!;
+                return [c.lat, c.lng] as [number, number];
+            }),
+        ];
+
+        map.flyToBounds(L.latLngBounds(points), {
+            padding: [80, 80],
+            maxZoom: 11,
+            duration: 1.2,
+        });
+    }, [userPosition, nearby, visibleZones, map]);
+
+    // Saat filter berganti, tutup sidebar zona agar marker hasil filter terlihat.
     const [prevFilter, setPrevFilter] = useState<string | null>(fishFilter);
 
     if (fishFilter !== prevFilter) {
@@ -96,13 +159,11 @@ export default function ZppiLayerLeaflet({
     }, [fishFilter, visibleZones, map]);
 
 
-    // [BARU] 3. EFFECT KAMERA RUTE & NAVIGASI
+    // FITUR MU: EFFECT KAMERA RUTE & NAVIGASI
     useEffect(() => {
-        // Jika rute belum ada, abaikan perintah kamera
         if (!nav.routeGeoJson) return;
 
         if (nav.status === 'planned') {
-            // TAHAP 2: MODE OVERVIEW (Menampilkan keseluruhan rute)
             const routeLayer = L.geoJSON(nav.routeGeoJson);
             const routeBounds = routeLayer.getBounds();
 
@@ -120,22 +181,17 @@ export default function ZppiLayerLeaflet({
             }
         } 
         else if (nav.status === 'active' && nav.userPosition) {
-            // TAHAP 3: MODE NAVIGASI (Zoom in ekstrem ke lokasi nelayan)
             const isMobile = window.innerWidth < 768;
-            
-            // Padding agar nelayan tidak tertutup sidebar desktop / bottom sheet
             const padTopLeft: [number, number] = isMobile ? [0, 0] : [400, 0];
             const padBottomRight: [number, number] = isMobile ? [0, 200] : [0, 0];
-
-            // Trik: Kita gunakan flyToBounds pada area berukuran 0 (hanya titik user) 
-            // agar fitur padding otomatis Leaflet tetap bisa bekerja!
+            
             const userPoint = L.latLng(nav.userPosition.lat, nav.userPosition.lng);
             
             map.flyToBounds(L.latLngBounds(userPoint, userPoint), {
                 paddingTopLeft: padTopLeft,
                 paddingBottomRight: padBottomRight,
-                maxZoom: 16, // Zoom in sangat dekat!
-                duration: 2.5, // Dibuat sedikit lebih lambat agar dramatis seperti Gmaps
+                maxZoom: 16, 
+                duration: 2.5, 
             });
         }
     }, [nav.routeGeoJson, nav.status, nav.userPosition, map]);
@@ -162,12 +218,32 @@ export default function ZppiLayerLeaflet({
 
     return (
         <>
+            {/* FITUR TEMAN: Lingkaran radius pencarian di sekitar pengguna (kunjungan pertama) */}
+            {!selectedZone && userPosition && nearby && nearby.nearby.length > 0 && (
+                <Circle
+                    center={[userPosition.lat, userPosition.lng]}
+                    radius={nearby.radiusKm * 1000}
+                    pathOptions={{
+                        color: '#d97706', // Amber
+                        weight: 1.5,
+                        fillColor: '#f59e0b',
+                        fillOpacity: 0.06,
+                        dashArray: '6 6',
+                    }}
+                />
+            )}
+
+            {/* GABUNGAN: Marker yang menampilkan Nearby Icon (Teman) atau Pulsing Icon biasa */}
             {!selectedZone &&
                 visibleZones.map((zone, idx) => (
                     <Marker
                         key={`marker-${idx}`}
                         position={zone.center!}
-                        icon={createPulsingIcon()}
+                        icon={
+                            nearbySet.has(idx)
+                                ? createNearbyIcon()
+                                : createPulsingIcon()
+                        }
                         eventHandlers={{ click: () => handleZoneClick(zone) }}
                     />
                 ))}
@@ -186,16 +262,15 @@ export default function ZppiLayerLeaflet({
                 />
             )}
 
-            {/* [BARU] 4. GARIS RUTE NAVIGASI */}
-            {/* Merender GeoJSON rute menjadi garis putus-putus ala maritim */}
+            {/* FITUR MU: GARIS RUTE NAVIGASI PUTUS-PUTUS */}
             {nav.routeGeoJson && (
                 <GeoJSON
                     key={`route-${nav.status}-${Date.now()}`}
                     data={nav.routeGeoJson}
                     style={{
-                        color: '#0284c7', // Biru cerah (Sky 600)
+                        color: '#0284c7', 
                         weight: 4,
-                        dashArray: '8, 8', // Garis putus-putus
+                        dashArray: '8, 8', 
                         lineCap: 'round',
                         lineJoin: 'round',
                     }}
@@ -203,7 +278,6 @@ export default function ZppiLayerLeaflet({
             )}
 
             <AnimatePresence>
-                {/* Hanya tampil jika ada zona yang dipilih, DAN status navigasi belum active */}
                 {selectedZone && nav.status !== 'active' && (
                     <ZoneDetailSidebar 
                         zone={selectedZone} 

@@ -1,8 +1,16 @@
 import json
 import argparse
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
+
+
+# ─────────────────────────────────────────────
+# HELPER: Log diagnostik ke stderr (stdout KHUSUS JSON)
+# ─────────────────────────────────────────────
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
 
 # ─────────────────────────────────────────────
 # HELPER: Simpan PNG heatmap overlay
@@ -135,13 +143,26 @@ def main():
     try:
         fish_profiles = json.loads(args.fish_profiles)
 
+        log(f"[{args.date}] ▶ Mulai: {len(fish_profiles)} profil ikan | "
+            f"bbox lat[{args.lat_min}..{args.lat_max}] lon[{args.lon_min}..{args.lon_max}]")
+
         dtype = np.uint16 if len(fish_profiles) > 8 else np.uint8
         for i, p in enumerate(fish_profiles):
             p['bit'] = 1 << i
 
+        log(f"[{args.date}] … Mengunduh SST & CHL dari CMEMS…")
         sst, sst_lats, sst_lons, chl, chl_lats, chl_lons = fetch_cmems(
             args.date, args.lat_min, args.lat_max, args.lon_min, args.lon_max
         )
+
+        log(f"[{args.date}] ✓ SST: shape={sst.shape} "
+            f"range={np.nanmin(sst):.2f}..{np.nanmax(sst):.2f} mean={np.nanmean(sst):.2f} "
+            f"(harap °C ~26..32; jika ~270..305 berarti Kelvin)")
+        if chl is not None:
+            log(f"[{args.date}] ✓ CHL: shape={chl.shape} "
+                f"range={np.nanmin(chl):.3f}..{np.nanmax(chl):.3f} mean={np.nanmean(chl):.3f}")
+        else:
+            log(f"[{args.date}] ⚠ CHL tidak tersedia → pencocokan SST-only")
 
         res         = 0.027
         master_lats = np.arange(args.lat_min, args.lat_max, res)
@@ -186,10 +207,15 @@ def main():
             # Perhatikan: Diambil dari nama_lokal
             confidence_maps[p['nama_lokal']] = conf_map
             composition_grid[fish_mask] |= p['bit']
+            log(f"[{args.date}]   • {p['nama_lokal']}: {int(fish_mask.sum())} piksel cocok "
+                f"(SST {p['sst_min']}..{p['sst_max']}"
+                + (f", CHL {p.get('chl_min')}..{p.get('chl_max')}" if master_chl is not None else "")
+                + ")")
 
         import rasterio
-        from rasterio.features import shapes, geometry_mask
+        from rasterio.features import shapes, rasterize
         from rasterio.transform import from_bounds
+        from scipy import ndimage
         from shapely.geometry import shape, MultiPolygon, mapping
         from shapely.ops import unary_union
 
@@ -206,6 +232,12 @@ def main():
         features = []
         MIN_AREA = res * res * 5
 
+        matched_px = int((composition_grid > 0).sum())
+        log(f"[{args.date}] ✓ Piksel ZPPI (gabungan): {matched_px}/{composition_grid.size} "
+            f"({100 * matched_px / composition_grid.size:.2f}%) → vektorisasi poligon…")
+
+        # ── FASE 1: Kumpulkan poligon kandidat (vektorisasi + filter area) ──
+        poly_records = []  # list of (val, merged_geometry)
         for geom_dict, val in shapes(data, transform=transform, connectivity=8):
             val = int(val)
             if val == 0:
@@ -223,49 +255,71 @@ def main():
             elif merged.geom_type not in ('MultiPolygon', 'GeometryCollection'):
                 continue
 
-            # MASKING SPASIAL LOKAL
-            poly_mask = geometry_mask([merged], out_shape=data.shape, transform=transform, invert=True)
-            local_mask = np.flipud(poly_mask)
+            poly_records.append((val, merged))
 
-            ikan_cocok = []
+        log(f"[{args.date}] ✓ {len(poly_records)} poligon kandidat (≥ MIN_AREA) → statistik per-zona…")
 
-            for p in fish_profiles:
-                if not (val & p['bit']):
+        # ── FASE 2: Statistik per-zona dalam SATU lintasan (rasterize + ndimage) ──
+        # Hindari geometry_mask per-poligon (O(poligon × grid)) yang membuat proses macet
+        # saat cakupan tinggi. Semua poligon dirasterisasi sekali menjadi peta label, lalu
+        # rata-rata per label (SST/CHL/confidence) dihitung sekaligus oleh scipy.ndimage.
+        if poly_records:
+            ids = np.arange(1, len(poly_records) + 1)
+            label_arr = rasterize(
+                ((geom, i) for i, (_, geom) in zip(ids, poly_records)),
+                out_shape=data.shape, transform=transform, fill=0, dtype='uint32',
+            )
+            labels = np.flipud(label_arr)  # samakan orientasi dgn master_sst/conf maps
+
+            sst_means = ndimage.mean(master_sst, labels=labels, index=ids)
+            chl_means = (ndimage.mean(master_chl, labels=labels, index=ids)
+                         if master_chl is not None else None)
+            fish_means = {
+                p['nama_lokal']: ndimage.mean(confidence_maps[p['nama_lokal']], labels=labels, index=ids)
+                for p in fish_profiles
+            }
+
+            for idx, (val, merged) in enumerate(poly_records):
+                ikan_cocok = []
+                for p in fish_profiles:
+                    if not (val & p['bit']):
+                        continue
+                    avg_conf = float(fish_means[p['nama_lokal']][idx])
+                    if not np.isfinite(avg_conf):
+                        avg_conf = 0.5
+                    ikan_cocok.append({
+                        'nama_lokal':  p['nama_lokal'],
+                        'nama_lain':   p.get('nama_lain', ''),
+                        'nama_ilmiah': p.get('nama_ilmiah', ''),
+                        'confidence':  round(avg_conf, 3),
+                        'image_path':  p.get('image_path', ''),
+                    })
+
+                ikan_cocok.sort(key=lambda x: x['confidence'], reverse=True)
+                if not ikan_cocok:
                     continue
 
-                fish_local_mask = local_mask & (composition_grid & p['bit']).astype(bool)
-                conf_map      = confidence_maps[p['nama_lokal']]
+                sst_val  = sst_means[idx]
+                sst_rata = round(float(sst_val), 2) if np.isfinite(sst_val) else None
+                chl_rata = (round(float(chl_means[idx]), 3)
+                            if (chl_means is not None and np.isfinite(chl_means[idx])) else None)
 
-                cocok_vals = conf_map[fish_local_mask]
-                avg_conf   = float(np.mean(cocok_vals)) if len(cocok_vals) > 0 else 0.5
-
-                ikan_cocok.append({
-                    'nama_lokal':  p['nama_lokal'],       
-                    'nama_lain':   p.get('nama_lain', ''), 
-                    'nama_ilmiah': p.get('nama_ilmiah', ''), 
-                    'confidence':  round(avg_conf, 3),
-                    'image_path':  p.get('image_path', ''),
+                features.append({
+                    'type':     'Feature',
+                    'geometry': mapping(merged),
+                    'properties': {
+                        'zone_date':  args.date,
+                        'sst_rata':   sst_rata,
+                        'chl_rata':   chl_rata,
+                        'ikan_cocok': ikan_cocok,
+                        'ikan_utama': ikan_cocok[0]['nama_lokal'] if ikan_cocok else None,
+                    }
                 })
 
-            ikan_cocok.sort(key=lambda x: x['confidence'], reverse=True)
-
-            if not ikan_cocok:
-                continue
-
-            sst_rata = round(float(np.mean(master_sst[local_mask])), 2) if local_mask.any() else None
-            chl_rata = round(float(np.mean(master_chl[local_mask])), 3) if (master_chl is not None and local_mask.any()) else None
-
-            features.append({
-                'type':     'Feature',
-                'geometry': mapping(merged),
-                'properties': {
-                    'zone_date':  args.date,
-                    'sst_rata':   sst_rata,
-                    'chl_rata':   chl_rata,
-                    'ikan_cocok': ikan_cocok,
-                    'ikan_utama': ikan_cocok[0]['nama_lokal'] if ikan_cocok else None,
-                }
-            })
+        log(f"[{args.date}] ✓ SELESAI: {len(features)} zona final "
+            f"(filter area < {MIN_AREA:.4f}). "
+            + ("⚠ 0 ZONA — cek range SST/CHL & ambang fish_profiles di atas."
+               if len(features) == 0 else "→ disimpan ke zppi_zones."))
 
         result = {
             'geojson':       {'type': 'FeatureCollection', 'features': features},
@@ -277,6 +331,7 @@ def main():
 
     except Exception as e:
         import traceback
+        log(f"[{args.date}] ✘ ERROR: {e}")
         result = {
             'geojson':       {'type': 'FeatureCollection', 'features': []},
             'confidence':    0.0,

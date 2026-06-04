@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FuelPriceService;
 use App\Services\OceanService;
 use App\Services\RouteService;
 use Carbon\Carbon;
@@ -46,7 +47,7 @@ class MapController extends Controller
      * Hitung rute pelayaran (menghindari daratan) dari posisi nelayan ke titik zona.
      * Dikonsumsi oleh tombol "Mulai Navigasi" di sidebar peta via axios.
      */
-    public function getRoute(Request $request, RouteService $router): JsonResponse
+    public function getRoute(Request $request, RouteService $router, FuelPriceService $fuel): JsonResponse
     {
         $validated = $request->validate([
             'start_lat' => 'required|numeric|between:-90,90',
@@ -61,6 +62,15 @@ class MapController extends Controller
             (float) $validated['end_lat'],
             (float) $validated['end_lng'],
         );
+
+        if (empty($route['error'])) {
+            // Lampirkan harga BBM (provinsi asal nelayan) agar frontend bisa
+            // mengestimasi biaya bahan bakar perjalanan pulang-pergi.
+            $route['fuel'] = $fuel->getPricesForCoordinate(
+                (float) $validated['start_lat'],
+                (float) $validated['start_lng'],
+            );
+        }
 
         $status = empty($route['error']) ? 200 : 422;
 

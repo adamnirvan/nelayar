@@ -9,40 +9,63 @@ use Illuminate\Support\Facades\Process;
 
 class OceanService
 {
-    public function fetchAndStore(string $date): void
+    /**
+     * Fetch CMEMS data for $date, store rasters + ZPPI zones.
+     *
+     * @param  string  $date  Tanggal target (Y-m-d).
+     * @param  callable|null  $onProgress  Dipanggil per-baris log diagnostik dari parse_zppi.py (stderr).
+     * @return int Jumlah zona (features) yang berhasil disimpan ke zppi_zones.
+     *
+     * @throws \RuntimeException Jika parser Python gagal atau mengembalikan error.
+     */
+    public function fetchAndStore(string $date, ?callable $onProgress = null): int
     {
         $pythonPath = base_path(env('PYTHON_PATH', 'python3'));
         $scriptPath = base_path('microservice/parse_zppi.py');
-     
+
         $fishProfiles = DB::table('fish_profiles')
-        ->orderBy('id')
-        ->get([
-            'nama_lokal',
-            'nama_lain',
-            'nama_ilmiah',
-            'sst_min',
-            'sst_max',
-            'chl_min',   
-            'chl_max',   
-            'image_path',
-        ])
-        ->toArray();
+            ->orderBy('id')
+            ->get([
+                'nama_lokal',
+                'nama_lain',
+                'nama_ilmiah',
+                'sst_min',
+                'sst_max',
+                'chl_min',
+                'chl_max',
+                'image_path',
+            ])
+            ->toArray();
         $fishJson = escapeshellarg(json_encode($fishProfiles));
-     
-        $result = Process::timeout(600)->run("{$pythonPath} {$scriptPath} --date {$date} --fish-profiles {$fishJson}");
-     
+
+        $result = Process::forever()->run(
+            "{$pythonPath} {$scriptPath} --date {$date} --fish-profiles {$fishJson}",
+            function (string $type, string $buffer) use ($onProgress) {
+                // parse_zppi.py menulis diagnostik ke stderr; stdout dikhususkan untuk JSON.
+                if ($onProgress === null || $type !== 'err') {
+                    return;
+                }
+                foreach (preg_split('/\r\n|\r|\n/', $buffer) as $line) {
+                    if (trim($line) !== '') {
+                        $onProgress(rtrim($line));
+                    }
+                }
+            }
+        );
+
         if ($result->failed()) {
             Log::error('ZPPI parse failed', ['date' => $date, 'error' => $result->errorOutput()]);
-            return;
+            throw new \RuntimeException("Parser Python gagal untuk {$date}: ".$result->errorOutput());
         }
-     
+
         $data = json_decode($result->output(), true);
-     
-        if (json_last_error() !== JSON_ERROR_NONE || !empty($data['error'])) {
-            Log::error('ZPPI Python error', ['error' => $data['error'] ?? 'Invalid JSON']);
-            return;
+
+        if (json_last_error() !== JSON_ERROR_NONE || ! empty($data['error'])) {
+            $msg = $data['error'] ?? 'Invalid JSON';
+            Log::error('ZPPI Python error', ['date' => $date, 'error' => $msg]);
+            throw new \RuntimeException("Parser Python error untuk {$date}: {$msg}");
         }
-     
+
         DB::beginTransaction();
         try {
             $oceanData = OceanData::updateOrCreate(
@@ -55,22 +78,25 @@ class OceanService
                     'fetched_at' => now(),
                 ]
             );
-     
+
             DB::table('zppi_zones')->where('ocean_data_id', $oceanData->id)->delete();
-     
+
             $features = $data['geojson']['features'] ?? [];
-     
+            $inserted = 0;
+
             foreach ($features as $feature) {
-                $geom  = $feature['geometry'] ?? null;
+                $geom = $feature['geometry'] ?? null;
                 $props = $feature['properties'] ?? [];
-                if (!$geom) continue;
+                if (! $geom) {
+                    continue;
+                }
 
                 // INSERT MURNI KE KOLOM MASING-MASING
-                DB::statement("
+                DB::statement('
                     INSERT INTO zppi_zones
                         (ocean_data_id, zone_date, ikan_cocok, sst_rata, chl_rata, confidence, geom, created_at, updated_at)
                     VALUES (?, ?, ?::jsonb, ?, ?, ?, ST_Multi(ST_GeomFromGeoJSON(?)), now(), now())
-                ", [
+                ', [
                     $oceanData->id,
                     $date,
                     json_encode($props['ikan_cocok'] ?? []),
@@ -79,11 +105,22 @@ class OceanService
                     $data['confidence'] ?? 1.0,
                     json_encode($geom),
                 ]);
+                $inserted++;
             }
             DB::commit();
+
+            if ($inserted === 0) {
+                Log::warning('ZPPI: 0 zona tersimpan', [
+                    'date' => $date,
+                    'fish_profiles' => DB::table('fish_profiles')->count(),
+                ]);
+            }
+
+            return $inserted;
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('ZPPI DB Error', ['error' => $e->getMessage()]);
+            Log::error('ZPPI DB Error', ['date' => $date, 'error' => $e->getMessage()]);
+            throw new \RuntimeException("Gagal menyimpan zona untuk {$date}: ".$e->getMessage(), 0, $e);
         }
     }
 
@@ -93,36 +130,36 @@ class OceanService
         $oceanData = DB::table('ocean_data')->where('data_date', $date)->first();
 
         // SELECT KOLOM MURNI
-        $rows = DB::select("
+        $rows = DB::select('
             SELECT ST_AsGeoJSON(geom) as geojson, confidence, ikan_cocok, sst_rata, chl_rata, zone_date::text
             FROM zppi_zones
             WHERE zone_date = ? 
             ORDER BY created_at DESC
-        ", [$date]);
+        ', [$date]);
 
         if (empty($rows)) {
             return ['type' => 'FeatureCollection', 'features' => [], 'sst_file_path' => null, 'chl_file_path' => null];
         }
 
-        $features = array_map(function($row) {
+        $features = array_map(function ($row) {
             return [
-                'type'       => 'Feature',
-                'geometry'   => $row->geojson, 
+                'type' => 'Feature',
+                'geometry' => $row->geojson,
                 'properties' => [
                     'confidence' => $row->confidence,
-                    'zone_date'  => $row->zone_date,
-                    'ikan_cocok' => json_decode($row->ikan_cocok, true) ?? [], 
-                    'sst_rata'   => $row->sst_rata, // Langsung mapping dari DB
-                    'chl_rata'   => $row->chl_rata, // Langsung mapping dari DB
+                    'zone_date' => $row->zone_date,
+                    'ikan_cocok' => json_decode($row->ikan_cocok, true) ?? [],
+                    'sst_rata' => $row->sst_rata, // Langsung mapping dari DB
+                    'chl_rata' => $row->chl_rata, // Langsung mapping dari DB
                 ],
             ];
         }, $rows);
 
         return [
-            'type'          => 'FeatureCollection', 
-            'features'      => $features,
+            'type' => 'FeatureCollection',
+            'features' => $features,
             'sst_file_path' => $oceanData?->sst_file_path ? asset($oceanData->sst_file_path) : null,
-            'chl_file_path' => $oceanData?->chl_file_path ? asset($oceanData->chl_file_path) : null
+            'chl_file_path' => $oceanData?->chl_file_path ? asset($oceanData->chl_file_path) : null,
         ];
     }
 }

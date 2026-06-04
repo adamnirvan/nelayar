@@ -214,6 +214,27 @@
     100% { box-shadow: 0 0 0 0 rgba(30, 58, 138, 0); }
 }
 
+/* Zona di dalam radius pencarian pengguna (Emas Berdenyut) */
+.nearby-marker-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.nearby-marker {
+    width: 20px;
+    height: 20px;
+    background-color: #f59e0b; /* Amber */
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: pulse-amber 1.5s infinite;
+    cursor: pointer;
+}
+@keyframes pulse-amber {
+    0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.7); }
+    70% { box-shadow: 0 0 0 16px rgba(217, 119, 6, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+}
+
 /* Marker posisi pengguna (Hijau Berdenyut) */
 .user-location-wrapper {
     display: flex;

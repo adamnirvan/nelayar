@@ -2,8 +2,10 @@ import type { Feature } from 'geojson';
 import L from 'leaflet';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { formatEta, useNavigation } from './NavigationContext';
-import type { LatLng } from './NavigationContext';
+// PERUBAHAN MERGE: Menggabungkan import milikmu dan temanmu (formatRupiah, FuelType)
+import { formatEta, formatRupiah, useNavigation } from './NavigationContext';
+import type { FuelType, LatLng } from './NavigationContext';
+import WeatherCard from '@/components/Map/WeatherCard';
 
 interface ZoneDetailSidebarProps {
     zone: Feature;
@@ -45,7 +47,6 @@ export default function ZoneDetailSidebar({
         }
     };
 
-    // REVISI 1: Peek diatur ke 240px agar seluruh card Parameter Area & Tanggal Data terlihat utuh
     const mobileVariants = {
         hidden: { y: '100%', x: 0 },
         peek: { y: 'calc(100% - 240px)', x: 0 },
@@ -94,9 +95,7 @@ export default function ZoneDetailSidebar({
                 onClick={() => setIsExpanded(!isExpanded)}
             />
 
-            {/* ========================================================================= */}
-            {/* REVISI 2, 3, & 4: HEADER ACTIONS (Pusat Kendali Navigasi Atas) */}
-            {/* ========================================================================= */}
+            {/* HEADER ACTIONS (Pusat Kendali Navigasi Atas - Milikmu Dipertahankan) */}
             <div className="mb-5 flex shrink-0 items-center justify-between gap-2 pointer-events-auto">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 tracking-tight">
                     Zona Potensi Ikan
@@ -173,7 +172,7 @@ export default function ZoneDetailSidebar({
                     if (isMobile && isExpanded) e.stopPropagation();
                 }}
             >
-                {/* INFO OSEANOGRAFI (PARAMETER AREA) */}
+                {/* INFO OSEANOGRAFI (PARAMETER AREA - Desain Milikmu Dipertahankan) */}
                 <div className="glass-inset mb-4 rounded-xl p-4 shadow-inner">
                     <h3 className="mb-2.5 text-sm font-semibold text-gray-900">Parameter Area</h3>
                     <ul className="space-y-2 text-sm text-gray-800">
@@ -194,10 +193,23 @@ export default function ZoneDetailSidebar({
                     </ul>
                 </div>
 
-                {/* INDIKATOR LAYAR JARAK & ETA PELAYARAN */}
-                {/* Diaktifkan jika rute sedang terencana atau aktif */}
+                {/* KARTU CUACA (Pindahan dari Index.tsx ke dalam Sidebar) */}
+               {center && (
+                   <div className="mb-4">
+                       <WeatherCard 
+                           date={props?.zone_date}
+                           dateLabel="Cuaca di Zona Ini"
+                           // Ubah lat dan lng menjadi satu properti objek koordinat.
+                           // Sesuaikan namanya dengan yang dibuat temanmu (misal: koordinat, coordinate, atau location)
+                           koordinat={center} 
+                       />
+                   </div>
+               )}
+
+                {/* INDIKATOR JARAK, ETA & ESTIMASI BBM (GABUNGAN KODE TEMAN & DESAINMU) */}
                 {isThisZone && (nav.status === 'planned' || nav.status === 'active') && (
                     <div className="glass-inset mb-4 rounded-xl p-4 shadow-inner border border-blue-100/50 bg-blue-50/10">
+                        {/* Jarak & ETA */}
                         <div className="flex justify-between text-sm text-gray-800">
                             <span>📏 Jarak Tempuh</span>
                             <span className="font-bold text-blue-800">{nav.distanceKm != null ? `${nav.distanceKm.toFixed(1)} km` : '—'}</span>
@@ -206,8 +218,55 @@ export default function ZoneDetailSidebar({
                             <span>⏱️ Estimasi Waktu</span>
                             <span className="font-bold text-blue-800">{formatEta(nav.etaHours)}</span>
                         </div>
+                        
+                        {/* FITUR TEMAN: ESTIMASI BBM (Dirombak menyesuaikan desain Glassmorphism-mu) */}
+                        <div className="mt-3 border-t border-blue-200/50 pt-3">
+                            <div className="mb-2 flex items-center justify-between">
+                                <span className="text-sm text-gray-800">⛽ Estimasi BBM (PP)</span>
+                                <div className="flex overflow-hidden rounded-lg border border-blue-200 text-[11px] font-semibold">
+                                    {(['solar', 'pertalite'] as FuelType[]).map((type) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => nav.setFuelType(type)}
+                                            className={`px-2.5 py-1 capitalize transition-colors ${
+                                                nav.fuelType === type
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'bg-white/40 text-gray-700 hover:bg-white/60'
+                                            }`}
+                                        >
+                                            {type === 'solar' ? 'Solar' : 'Pertalite'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex items-baseline justify-between">
+                                <span className="text-lg font-bold text-gray-900">
+                                    {formatRupiah(nav.fuelEstimate?.cost ?? null)}
+                                </span>
+                                {nav.fuelEstimate && (
+                                    <span className="text-xs font-bold text-slate-600">
+                                        ±{nav.fuelEstimate.liters.toFixed(1)} L
+                                    </span>
+                                )}
+                            </div>
+
+                            {nav.fuelEstimate?.pricePerLiter != null ? (
+                                <p className="mt-1 text-[10px] text-slate-500 font-medium">
+                                    {formatRupiah(nav.fuelEstimate.pricePerLiter)}/L
+                                    {nav.fuelPrices && ` • ${nav.fuelPrices.province}`}
+                                    {nav.fuelPrices?.source === 'national' && ' (rata-rata)'}
+                                </p>
+                            ) : (
+                                <p className="mt-1 text-[10px] font-medium text-amber-600">
+                                    ⚠️ Harga {nav.fuelType === 'solar' ? 'Solar' : 'Pertalite'} tidak tersedia di wilayah ini.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Indikator Status Perjalanan Aktif */}
                         {nav.status === 'active' && (
-                            <div className="mt-3 pt-2.5 border-t border-dashed border-slate-300 flex items-center justify-center gap-1.5 text-xs font-bold text-green-700">
+                            <div className="mt-3 pt-2.5 border-t border-dashed border-blue-200 flex items-center justify-center gap-1.5 text-xs font-bold text-green-700">
                                 <span className="relative flex h-2 w-2">
                                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
                                     <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
@@ -225,7 +284,7 @@ export default function ZoneDetailSidebar({
                     </div>
                 )}
 
-                {/* TARGET SPESIES POTENSIAL */}
+                {/* TARGET SPESIES POTENSIAL (Desain Milikmu Dipertahankan) */}
                 <div className="mt-2">
                     <h3 className="text-sm font-bold text-gray-800 mb-3">Target Spesies Potensial</h3>
                     <div className="space-y-3">

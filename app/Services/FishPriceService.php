@@ -70,7 +70,7 @@ class FishPriceService
         $latestDate = $scope(FishPrice::query())->max('price_date');
 
         if (! $latestDate) {
-            return ['avg' => 0, 'max' => 0, 'min' => 0, 'coverage' => 0, 'change' => 0, 'period' => '-', 'max_loc' => '-', 'min_loc' => '-'];
+            return ['avg' => 0, 'max' => 0, 'min' => 0, 'coverage' => 0, 'change' => null, 'period' => '-', 'max_loc' => '-', 'min_loc' => '-'];
         }
 
         $currentMonth = substr((string) $latestDate, 0, 7);
@@ -97,9 +97,11 @@ class FishPriceService
             ->whereRaw("TO_CHAR(price_date, 'YYYY-MM') = ?", [$prevMonth])
             ->avg('price');
 
+        // Null (not 0) when there is no previous-month baseline to compare against —
+        // 0 is a real "no change" reading and must stay distinguishable from "no data".
         $change = ($prevAvg && $current?->avg)
-            ? (($current->avg - $prevAvg) / $prevAvg) * 100
-            : 0;
+            ? round((($current->avg - $prevAvg) / $prevAvg) * 100, 1)
+            : null;
 
         return [
             'avg'      => (int) round($current->avg ?? 0),
@@ -109,7 +111,7 @@ class FishPriceService
             'max_loc'  => $maxLoc ?? '-',
             'min_loc'  => $minLoc ?? '-',
             'period'   => date('M Y', strtotime($currentMonth . '-01')),
-            'change'   => round($change, 1),
+            'change'   => $change,
         ];
     }
 
@@ -152,16 +154,18 @@ class FishPriceService
         return $result;
     }
 
-    /** Daily avg prices over the last 30 days for `get_weekly_trend` action. */
+    /** Monthly avg prices for the most recent 12 months (chronological) for the trend chart. */
     public function getWeeklyTrend(string $commodity): array
     {
         return FishPrice::where('commodity', $commodity)
             ->whereNull('regency')
-            ->selectRaw("TO_CHAR(price_date, 'DD Mon YYYY') as label, price_date, AVG(price) as price")
-            ->groupBy('price_date')
-            ->orderBy('price_date')
-            ->limit(30)
+            ->selectRaw("TO_CHAR(DATE_TRUNC('month', price_date), 'Mon YY') as label, DATE_TRUNC('month', price_date) as sort_date, AVG(price) as price")
+            ->groupByRaw("DATE_TRUNC('month', price_date)")
+            ->orderByDesc('sort_date')
+            ->limit(12)
             ->get()
+            ->reverse()
+            ->values()
             ->map(fn($row) => ['label' => $row->label, 'price' => (int) round($row->price)])
             ->toArray();
     }

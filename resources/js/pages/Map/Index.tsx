@@ -8,6 +8,7 @@ import MapContainer from '@/components/Map/MapContainer';
 import MapHeader from '@/components/Map/MapHeader';
 import type { MapLayer } from '@/components/Map/MapHeader';
 import NavigationBanner from '@/components/Map/NavigationBanner';
+// GABUNGAN IMPORT: Mengambil NavigationProvider, useNavigation (milikmu) dan WeatherCard (milik temanmu)
 import { NavigationProvider, useNavigation } from '@/components/Map/NavigationContext';
 import ZppiOverlays from '@/components/Map/ZppiOverlays';
 import type { SearchTarget } from '@/components/Map/ZppiOverlaysLeaflet';
@@ -34,30 +35,23 @@ export default function MapIndex({
     sstFileUrl,
     chlFileUrl,
 }: Props) {
-    // Menghitung offset hari saat ini berdasarkan selectedDate yang dikirim backend
     const [dayOffset, setDayOffset] = useState<number>(0);
     const [isChangingDate, setIsChangingDate] = useState<boolean>(false);
 
-    // State header: layer aktif + target pencarian wilayah
     const [activeLayer, setActiveLayer] = useState<MapLayer>('processed');
     const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
     const [isSearching, setIsSearching] = useState<boolean>(false);
 
-    // Filter pencarian ikan: key spesies aktif (null = tampilkan semua zona).
-    // `clearSignal` dipakai untuk mereset kolom pencarian di header saat tanggal berganti.
     const [fishFilter, setFishFilter] = useState<string | null>(null);
     const [clearSignal, setClearSignal] = useState<number>(0);
 
-    // Indeks spesies unik dari seluruh zona pada tanggal aktif (sumber saran pencarian).
     const fishSuggestions = useMemo(
         () => buildFishIndex(zppiGeoJson),
         [zppiGeoJson],
     );
 
-    // Sidebar detail zona sedang terbuka? (untuk menyembunyikan elemen header yang menutupinya)
     const [zoneOpen, setZoneOpen] = useState<boolean>(false);
 
-    // Memilih spesies dari dropdown: aktifkan filter marker, batalkan fly wilayah.
     const handleSelectFish = (fish: FishSuggestion) => {
         setSearchTarget(null);
         setFishFilter(fish.key);
@@ -65,10 +59,8 @@ export default function MapIndex({
 
     const handleClearFish = () => setFishFilter(null);
 
-    // Pencarian wilayah via Nominatim (OpenStreetMap), dibatasi ke Indonesia
     const handleSearch = async (query: string) => {
         setIsSearching(true);
-
         try {
             const res = await fetch(
                 `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=id&q=${encodeURIComponent(query)}`,
@@ -83,25 +75,22 @@ export default function MapIndex({
                 });
             }
         } catch {
-            // Abaikan kegagalan jaringan; biarkan peta tetap di posisi semula
+            // Abaikan kegagalan jaringan
         } finally {
             setIsSearching(false);
         }
     };
 
-    // Format tampilan tanggal yang elegan untuk UI (Contoh: Sabtu, 30 Mei)
     const formattedDisplayDate = format(
         parseISO(selectedDate),
         'EEEE, d MMMM',
         { locale: id },
     );
 
-    // Efek penangan perubahan slider untuk melakukan rotasi data via Inertia Partial Reload
     const handleSliderChange = (value: number) => {
         setDayOffset(value);
         setIsChangingDate(true);
 
-        // Data zona berganti → reset filter ikan & kolom pencarian agar tak menyaring data lama.
         setFishFilter(null);
         setClearSignal((n) => n + 1);
 
@@ -110,28 +99,27 @@ export default function MapIndex({
             'yyyy-MM-dd',
         );
 
-        // Menembak kembali ke MapController@index dengan muatan parameter date dinamis
         router.get(
             window.location.pathname,
             { date: targetDateString },
             {
-                preserveState: true, // Jaga agar peta tidak ke-reset ke posisi awal
+                preserveState: true,
                 preserveScroll: true,
                 only: [
                     'selectedDate',
                     'zppiGeoJson',
                     'sstFileUrl',
                     'chlFileUrl',
-                ], // Ambil data yang perlu saja
+                ],
                 onFinish: () => setIsChangingDate(false),
             },
         );
     };
 
-return (
+    return (
         <NavigationProvider>
             <div className="relative h-screen w-full overflow-hidden">
-                {/* 1. Kanvas Utama Peta (Tetap menyala di belakang) */}
+                {/* 1. Kanvas Utama Peta */}
                 <MapContainer>
                     <ZppiOverlays
                         selectedDate={selectedDate}
@@ -145,32 +133,34 @@ return (
                     />
                 </MapContainer>
 
-                {/* 2. ZEN MODE KONTROL (Membungkus elemen yang bisa hilang) */}
+                {/* 2. ZEN MODE KONTROL (Membungkus elemen UI yang bisa hilang) */}
                 <ZenModeController>
                     {(isZen) => (
                         <>
-                            {/* HEADER: Ditambahkan pointer-events-none agar tidak memblokir klik pada elemen di bawahnya */}
+                            {/* HEADER */}
                             <div className={`transition-all duration-700 ease-in-out z-[40] absolute top-0 w-full pointer-events-none ${isZen ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'}`}>
                                 <MapHeader
-                                activeLayer={activeLayer}
-                                onLayerChange={setActiveLayer}
-                                onSearch={handleSearch}
-                                fishSuggestions={fishSuggestions}
-                                onSelectFish={handleSelectFish}
-                                onClearFish={handleClearFish}
-                                activeFishKey={fishFilter}
-                                clearSignal={clearSignal}
-                                isSearching={isSearching}
-                                sidebarOpen={zoneOpen}
+                                    activeLayer={activeLayer}
+                                    onLayerChange={setActiveLayer}
+                                    onSearch={handleSearch}
+                                    fishSuggestions={fishSuggestions}
+                                    onSelectFish={handleSelectFish}
+                                    onClearFish={handleClearFish}
+                                    activeFishKey={fishFilter}
+                                    clearSignal={clearSignal}
+                                    isSearching={isSearching}
+                                    sidebarOpen={zoneOpen}
                                 />
-                                </div>
+                            </div>
 
-                            {/* SLIDER WAKTU: Dilengkapi "Spatial Awareness" */}
+                           
+
+                            {/* SLIDER WAKTU: Dilengkapi "Spatial Awareness" milikmu */}
                             <div className={`
                                 pointer-events-auto absolute left-1/2 z-[900] w-[90%] max-w-md -translate-x-1/2 
                                 transition-all duration-500 ease-in-out bottom-10
                                 
-                                /* Visibilitas Zen Mode (Tanpa md:ml yang bikin offside) */
+                                /* Visibilitas Zen Mode & Spatial Awareness */
                                 ${isZen 
                                     ? 'translate-y-20 opacity-0 pointer-events-none' 
                                     : zoneOpen 
@@ -226,7 +216,7 @@ return (
                     )}
                 </ZenModeController>
 
-                {/* 3. Banner Navigasi (Tidak ikut di-hide, karena dia tokoh utamanya saat Zen Mode aktif) */}
+                {/* 3. Banner Navigasi (Milikmu & Temanmu sama-sama sepakat meletakkan ini di luar) */}
                 <NavigationBanner />
             </div>
         </NavigationProvider>

@@ -33,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/map/forecast', [MapController::class, 'forecast'])->name('api.map.forecast');
     Route::get('/api/map/zppi', [MapController::class, 'getZppi'])->name('api.map.zppi');
     Route::get('/api/map/route', [MapController::class, 'getRoute'])->name('api.map.route');
+    Route::get('/api/map/weather', [WeatherController::class, 'data'])->name('api.map.weather');
 });
 
 require __DIR__.'/settings.php';

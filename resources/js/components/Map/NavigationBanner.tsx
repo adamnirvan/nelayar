@@ -1,9 +1,10 @@
-import { formatEta, useNavigation } from './NavigationContext';
+import { formatEta, formatRupiah, useNavigation } from './NavigationContext';
 
 // Banner mengambang yang menandakan perjalanan sedang berlangsung (mode PWA on-going).
 // Tetap tampil walau sidebar zona ditutup, sehingga nelayan selalu melihat status navigasi.
 export default function NavigationBanner() {
-    const { status, distanceKm, etaHours, cancelNavigation } = useNavigation();
+    const { status, distanceKm, etaHours, fuelEstimate, cancelNavigation } =
+        useNavigation();
 
     if (status !== 'active') {
         return null;
