@@ -3,8 +3,9 @@
 namespace App\Services;
 
 use App\Models\FishPrice;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Process;
 
 class FishPriceService
 {
@@ -18,54 +19,92 @@ class FishPriceService
         if ($result->failed()) {
             $command->error('KKP scrape failed');
             $command->error($result->errorOutput());
+
             return;
         }
 
         $prices = json_decode($result->output(), true);
 
         if (json_last_error() !== JSON_ERROR_NONE || ! is_array($prices)) {
-            $command->error('KKP scrape returned invalid JSON: ' . $result->output());
+            $command->error('KKP scrape returned invalid JSON: '.$result->output());
+
             return;
         }
 
         if (empty($prices)) {
             $command->warn('KKP scrape returned zero price records');
+
             return;
         }
 
         foreach ($prices as $price) {
             FishPrice::updateOrCreate(
                 [
-                    'commodity'  => $price['commodity'],
-                    'province'   => $price['province'],
-                    'regency'    => $price['regency'] ?? null,
+                    'commodity' => $price['commodity'],
+                    'province' => $price['province'],
+                    'regency' => $price['regency'] ?? null,
                     'price_date' => $price['price_date'],
                 ],
                 array_merge($price, ['scraped_at' => now()])
             );
         }
 
-        $command->info('KKP scrape complete: ' . count($prices) . ' records');
+        $command->info('KKP scrape complete: '.count($prices).' records');
     }
 
     public function get(?string $commodity = null, ?string $province = null): array
     {
         return FishPrice::query()
-            ->when($commodity, fn($q) => $q->where('commodity', $commodity))
-            ->when($province,  fn($q) => $q->where('province', $province))
+            ->when($commodity, fn ($q) => $q->where('commodity', $commodity))
+            ->when($province, fn ($q) => $q->where('province', $province))
             ->orderByDesc('price_date')
             ->get()
             ->toArray();
+    }
+
+    /**
+     * Columns the API is allowed to sort by. Whitelisted to keep the
+     * client-supplied `sort` param from reaching arbitrary SQL.
+     */
+    public const SORTABLE = ['price', 'price_date', 'commodity', 'province', 'regency', 'price_change_pct'];
+
+    /**
+     * Build a filtered query over fish prices for the public listing endpoint.
+     * Every filter is optional; callers paginate the returned builder.
+     *
+     * @param  array{commodity?:?string,province?:?string,regency?:?string,search?:?string,date_from?:?string,date_to?:?string,sort?:?string,direction?:?string}  $filters
+     */
+    public function query(array $filters = []): Builder
+    {
+        $sort = in_array($filters['sort'] ?? null, self::SORTABLE, true)
+            ? $filters['sort']
+            : 'price_date';
+        $direction = strtolower($filters['direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        return FishPrice::query()
+            ->when($filters['commodity'] ?? null, fn ($q, $v) => $q->where('commodity', $v))
+            ->when($filters['province'] ?? null, fn ($q, $v) => $q->where('province', $v))
+            ->when($filters['regency'] ?? null, fn ($q, $v) => $q->where('regency', $v))
+            ->when($filters['date_from'] ?? null, fn ($q, $v) => $q->whereDate('price_date', '>=', $v))
+            ->when($filters['date_to'] ?? null, fn ($q, $v) => $q->whereDate('price_date', '<=', $v))
+            ->when($filters['search'] ?? null, fn ($q, $v) => $q->where(function (Builder $q) use ($v) {
+                $q->where('commodity', 'ilike', "%{$v}%")
+                    ->orWhere('province', 'ilike', "%{$v}%")
+                    ->orWhere('regency', 'ilike', "%{$v}%");
+            }))
+            ->orderBy($sort, $direction)
+            // Stable tiebreaker so pagination is deterministic across pages.
+            ->orderByDesc('id');
     }
 
     /** Aggregate stats for `get_stats` action. Province is a name string, not a numeric ID. */
     public function getStats(?string $commodity = null, ?string $province = null): array
     {
         // Province drill-down uses regency-level rows; national view uses province-level rows (regency IS NULL).
-        $scope = fn($q) => $q
-            ->when($commodity, fn($q) => $q->where('commodity', $commodity))
-            ->when($province, fn($q) => $q->where('province', $province))
-            ->when($province, fn($q) => $q->whereNotNull('regency'), fn($q) => $q->whereNull('regency'));
+        $scope = fn ($q) => $q
+            ->when($commodity, fn ($q) => $q->where('commodity', $commodity))
+            ->when($province, fn ($q) => $q->where('province', $province))
+            ->when($province, fn ($q) => $q->whereNotNull('regency'), fn ($q) => $q->whereNull('regency'));
 
         $latestDate = $scope(FishPrice::query())->max('price_date');
 
@@ -74,9 +113,9 @@ class FishPriceService
         }
 
         $currentMonth = substr((string) $latestDate, 0, 7);
-        $prevMonth = date('Y-m', strtotime($currentMonth . '-01 -1 month'));
+        $prevMonth = date('Y-m', strtotime($currentMonth.'-01 -1 month'));
 
-        $coverageExpr = $province ? "COUNT(DISTINCT regency)" : "COUNT(DISTINCT province)";
+        $coverageExpr = $province ? 'COUNT(DISTINCT regency)' : 'COUNT(DISTINCT province)';
 
         $current = $scope(FishPrice::query())
             ->whereRaw("TO_CHAR(price_date, 'YYYY-MM') = ?", [$currentMonth])
@@ -104,14 +143,14 @@ class FishPriceService
             : null;
 
         return [
-            'avg'      => (int) round($current->avg ?? 0),
-            'max'      => (int) round($current->max ?? 0),
-            'min'      => (int) round($current->min ?? 0),
+            'avg' => (int) round($current->avg ?? 0),
+            'max' => (int) round($current->max ?? 0),
+            'min' => (int) round($current->min ?? 0),
             'coverage' => (int) ($current->coverage ?? 0),
-            'max_loc'  => $maxLoc ?? '-',
-            'min_loc'  => $minLoc ?? '-',
-            'period'   => date('M Y', strtotime($currentMonth . '-01')),
-            'change'   => $change,
+            'max_loc' => $maxLoc ?? '-',
+            'min_loc' => $minLoc ?? '-',
+            'period' => date('M Y', strtotime($currentMonth.'-01')),
+            'change' => $change,
         ];
     }
 
@@ -128,7 +167,7 @@ class FishPriceService
             }
 
             $currentMonth = substr((string) $latestDate, 0, 7);
-            $prevMonth = date('Y-m', strtotime($currentMonth . '-01 -1 month'));
+            $prevMonth = date('Y-m', strtotime($currentMonth.'-01 -1 month'));
 
             $currentAvg = FishPrice::where('commodity', $commodity)
                 ->whereNull('regency')
@@ -145,8 +184,8 @@ class FishPriceService
                 : 0;
 
             $result[] = [
-                'name'   => $commodity,
-                'price'  => (int) round($currentAvg ?? 0),
+                'name' => $commodity,
+                'price' => (int) round($currentAvg ?? 0),
                 'change' => $change,
             ];
         }
@@ -166,7 +205,7 @@ class FishPriceService
             ->get()
             ->reverse()
             ->values()
-            ->map(fn($row) => ['label' => $row->label, 'price' => (int) round($row->price)])
+            ->map(fn ($row) => ['label' => $row->label, 'price' => (int) round($row->price)])
             ->toArray();
     }
 
@@ -179,9 +218,9 @@ class FishPriceService
             ->groupBy('province')
             ->orderByDesc('price')
             ->get()
-            ->map(fn($row) => [
-                'id'    => $row->province,
-                'name'  => $row->province,
+            ->map(fn ($row) => [
+                'id' => $row->province,
+                'name' => $row->province,
                 'price' => (int) round($row->price),
                 'count' => (int) $row->count,
             ])
@@ -198,9 +237,9 @@ class FishPriceService
             ->groupBy('regency')
             ->orderByDesc('price')
             ->get()
-            ->map(fn($row) => [
-                'id'    => $row->regency,
-                'name'  => $row->regency,
+            ->map(fn ($row) => [
+                'id' => $row->regency,
+                'name' => $row->regency,
                 'price' => (int) round($row->price),
             ])
             ->toArray();
@@ -216,7 +255,7 @@ class FishPriceService
             ->orderBy('sort_date')
             ->limit(12)
             ->get()
-            ->map(fn($row) => ['month' => $row->month, 'price' => (int) round($row->price)])
+            ->map(fn ($row) => ['month' => $row->month, 'price' => (int) round($row->price)])
             ->toArray();
     }
 }

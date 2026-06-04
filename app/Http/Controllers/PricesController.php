@@ -31,24 +31,46 @@ class PricesController extends Controller
         ]);
     }
 
-    // JSON endpoint to fetch/filter fish prices. Both filters are optional:
-    // `commodity` and `province` narrow the result set; omit them to list all.
-    // Returns the matching rows plus aggregate stats for the same scope.
+    /**
+     * Paginated, filterable listing of fish prices (JSON API).
+     *
+     * Filters (all optional): `commodity`, `province`, `regency`, `search`
+     * (matches any of those three), and a `date_from`/`date_to` range.
+     * Sorting via `sort` (whitelisted column) + `direction` (asc|desc).
+     * Paging via `page` and `per_page` (max 100). Omit everything to get
+     * the full catalogue, newest first.
+     */
     public function data(Request $request, FishPriceService $prices): JsonResponse
     {
         $validated = $request->validate([
             'commodity' => ['nullable', 'string'],
             'province' => ['nullable', 'string'],
+            'regency' => ['nullable', 'string'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'sort' => ['nullable', 'string', 'in:'.implode(',', FishPriceService::SORTABLE)],
+            'direction' => ['nullable', 'string', 'in:asc,desc'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $commodity = $validated['commodity'] ?? null;
-        $province = $validated['province'] ?? null;
+        $perPage = (int) ($validated['per_page'] ?? 25);
+
+        $page = $prices->query($validated)->paginate($perPage)->withQueryString();
 
         return response()->json([
-            'data' => $prices->get($commodity, $province),
-            'stats' => $prices->getStats($commodity, $province),
-            'commodities' => FishPrice::distinct()->orderBy('commodity')->pluck('commodity'),
-            'filters' => ['commodity' => $commodity, 'province' => $province],
+            'data' => $page->items(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+            ],
+            'filters' => $request->only([
+                'commodity', 'province', 'regency', 'search',
+                'date_from', 'date_to', 'sort', 'direction',
+            ]),
         ]);
     }
 }
