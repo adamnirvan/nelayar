@@ -45,15 +45,21 @@ export default function LocateControl() {
             },
             (err) => {
                 setIsLocating(false);
-                console.warn('GPS gagal, menggunakan fallback.', err.message);
+                console.warn('GPS gagal.', err.message);
+
+                // Pada permintaan otomatis (silent) saat halaman dibuka, JANGAN pasang
+                // lokasi fallback. Menyetel userPosition ke koordinat tetap akan salah
+                // menandai marker "Lokasi Anda" dan menggeser peta tanpa sepengetahuan
+                // pengguna yang menolak/ tidak punya izin GPS. Fallback hanya dipakai saat
+                // pengguna menekan tombol lokasi secara eksplisit.
+                if (silent) return;
+
                 const fallbackCoords: [number, number] = [-7.2000, 112.7500];
                 setPosition(fallbackCoords);
                 setUserPosition({ lat: fallbackCoords[0], lng: fallbackCoords[1] });
 
-                if (!silent) {
-                    setError(err.code === err.PERMISSION_DENIED ? 'Izin ditolak.' : 'GPS lemah. Memakai fallback.');
-                    setTimeout(() => setError(null), 4000); 
-                }
+                setError(err.code === err.PERMISSION_DENIED ? 'Izin ditolak.' : 'GPS lemah. Memakai fallback.');
+                setTimeout(() => setError(null), 4000);
                 if (fly) map.flyTo(fallbackCoords, 14, { duration: 1.5 });
             },
             { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
