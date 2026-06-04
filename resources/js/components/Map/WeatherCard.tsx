@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useEffect, useState } from 'react';
-import { useNavigation } from './NavigationContext';
+// useNavigation dihapus karena kita tidak lagi mengambil lokasi pengguna, melainkan lokasi zona
 
 interface Weather {
     source: 'openmeteo';
@@ -60,23 +60,23 @@ function weatherIcon(desc: string | null): string {
 interface Props {
     // Tanggal prakiraan terpilih (Y-M-D) — mengikuti slider tanggal peta.
     date: string;
-    // Label tanggal singkat untuk badge kartu (mis. "Hari Ini" / "H+3").
+    // Label tanggal singkat untuk badge kartu.
     dateLabel: string;
-    // Disembunyikan saat sidebar detail zona terbuka (menutupi sudut kiri-atas).
+    // Disembunyikan saat diperlukan.
     hidden?: boolean;
+    // [BARU]: Menangkap prop koordinat yang dikirim dari Sidebar
+    koordinat: { lat: number; lng: number };
 }
 
-// Kartu cuaca mengambang yang menampilkan prakiraan di lokasi pengguna untuk
-// tanggal terpilih. Muncul setelah izin lokasi diberikan (userPosition terisi
-// dari LocateControl) dan ikut berubah saat slider tanggal peta digeser.
-export default function WeatherCard({ date, dateLabel, hidden = false }: Props) {
-    const { userPosition } = useNavigation();
+// Kartu cuaca yang menampilkan prakiraan di lokasi zona yang dipilih.
+export default function WeatherCard({ date, dateLabel, hidden = false, koordinat }: Props) {
     const [weather, setWeather] = useState<Weather | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<boolean>(false);
 
     useEffect(() => {
-        if (!userPosition) {
+        // Jangan lakukan apa-apa jika koordinat belum dikirim
+        if (!koordinat) {
             return;
         }
 
@@ -88,7 +88,8 @@ export default function WeatherCard({ date, dateLabel, hidden = false }: Props) 
 
         axios
             .get<Weather>('/api/map/weather', {
-                params: { lat: userPosition.lat, lon: userPosition.lng, date },
+                // Menggunakan koordinat zona (koordinat.lng dipetakan ke parameter lon)
+                params: { lat: koordinat.lat, lon: koordinat.lng, date },
             })
             .then((res) => {
                 if (!cancelled) {
@@ -109,98 +110,98 @@ export default function WeatherCard({ date, dateLabel, hidden = false }: Props) 
         return () => {
             cancelled = true;
         };
-        // Ambil ulang saat koordinat (lokasi baru) atau tanggal berubah.
+        // Ambil ulang saat koordinat (zona baru) atau tanggal berubah.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userPosition?.lat, userPosition?.lng, date]);
+    }, [koordinat?.lat, koordinat?.lng, date]);
 
-    // Belum ada lokasi atau sidebar zona menutupi area — jangan tampilkan apa pun.
-    if (!userPosition || hidden) {
+    if (!koordinat || hidden) {
         return null;
     }
+
     return (
-        <div className="pointer-events-auto absolute bottom-48 left-4 z-[1000] w-56 md:bottom-10">
-            <div className="glass-panel rounded-2xl p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
-                        Cuaca Lokasi Anda
-                    </span>
-                    <span className="glass-inset rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap text-gray-700 uppercase">
-                        {dateLabel}
-                    </span>
-                </div>
-
-                {loading && !weather && (
-                    <div className="flex items-center gap-2 py-2 text-sm text-gray-600">
-                        <svg
-                            className="h-4 w-4 animate-spin"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                        >
-                            <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                            />
-                            <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"
-                            />
-                        </svg>
-                        Memuat cuaca…
-                    </div>
-                )}
-
-                {error && !weather && (
-                    <p className="py-2 text-sm text-gray-600">
-                        Gagal memuat cuaca.
-                    </p>
-                )}
-
-                {weather && (
-                    <>
-                        <div className="flex items-center gap-3">
-                            <span className="text-4xl leading-none">
-                                {weatherIcon(weather.weather_desc)}
-                            </span>
-                            <div>
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className="text-3xl font-bold text-gray-900">
-                                        {Math.round(weather.temp_max)}°
-                                    </span>
-                                    <span className="text-base font-semibold text-gray-500">
-                                        {Math.round(weather.temp_min)}°
-                                    </span>
-                                </div>
-                                {weather.weather_desc && (
-                                    <div className="text-xs font-semibold text-gray-600">
-                                        {weather.weather_desc}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-gray-700">
-                            <div className="glass-inset rounded-lg px-2 py-1.5">
-                                <span className="block text-[9px] tracking-wide text-gray-500 uppercase">
-                                    Angin
-                                </span>
-                                {weather.wind_speed} km/j{' '}
-                                {weather.wind_direction}
-                            </div>
-                            <div className="glass-inset rounded-lg px-2 py-1.5">
-                                <span className="block text-[9px] tracking-wide text-gray-500 uppercase">
-                                    Gelombang
-                                </span>
-                                {weather.wave_height} m
-                            </div>
-                        </div>
-                    </>
-                )}
+        // [REVISI UI]: Wrapper posisi absolute dihapus agar menyesuaikan wadah Sidebar
+        // Mengubah rounded-2xl menjadi rounded-xl agar senada dengan UI dalam Sidebar
+        <div className="glass-panel w-full rounded-xl p-4 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+                    Prakiraan Cuaca
+                </span>
+                <span className="glass-inset rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap text-gray-700 uppercase">
+                    {dateLabel}
+                </span>
             </div>
+
+            {loading && !weather && (
+                <div className="flex items-center gap-2 py-2 text-sm text-gray-600">
+                    <svg
+                        className="h-4 w-4 animate-spin"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                    >
+                        <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                        />
+                        <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"
+                        />
+                    </svg>
+                    Memuat cuaca…
+                </div>
+            )}
+
+            {error && !weather && (
+                <p className="py-2 text-sm text-gray-600">
+                    Gagal memuat cuaca.
+                </p>
+            )}
+
+            {weather && (
+                <>
+                    <div className="flex items-center gap-3">
+                        <span className="text-4xl leading-none">
+                            {weatherIcon(weather.weather_desc)}
+                        </span>
+                        <div>
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="text-3xl font-bold text-gray-900">
+                                    {Math.round(weather.temp_max)}°
+                                </span>
+                                <span className="text-base font-semibold text-gray-500">
+                                    {Math.round(weather.temp_min)}°
+                                </span>
+                            </div>
+                            {weather.weather_desc && (
+                                <div className="text-xs font-semibold text-gray-600">
+                                    {weather.weather_desc}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-gray-700">
+                        <div className="glass-inset rounded-lg px-2 py-1.5">
+                            <span className="block text-[9px] tracking-wide text-gray-500 uppercase">
+                                Angin
+                            </span>
+                            {weather.wind_speed} km/j{' '}
+                            {weather.wind_direction}
+                        </div>
+                        <div className="glass-inset rounded-lg px-2 py-1.5">
+                            <span className="block text-[9px] tracking-wide text-gray-500 uppercase">
+                                Gelombang
+                            </span>
+                            {weather.wave_height} m
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

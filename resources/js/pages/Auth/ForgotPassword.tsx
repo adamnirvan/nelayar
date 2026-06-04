@@ -1,9 +1,8 @@
-import { Link } from '@inertiajs/react';
+import { Link, Head } from '@inertiajs/react';
 import axios from 'axios';
 import { Mail } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
-import AppLogoIcon from '@/components/app-logo-icon';
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');
@@ -32,106 +31,82 @@ export default function ForgotPassword() {
     }
 
     return (
-        <div className="grid h-screen lg:grid-cols-2">
-            {/* Left panel — form */}
-            <div className="flex items-center justify-center bg-gray-50 p-8">
-                <div className="w-full max-w-sm">
-                    <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100">
-                        <div className="mb-7">
-                            <h2 className="text-2xl font-bold text-gray-900">Lupa Kata Sandi?</h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Masukkan email Anda dan kami akan mengirimkan tautan untuk mereset kata sandi.
-                            </p>
-                        </div>
+        <>
+            <Head title="Lupa Kata Sandi" />
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+            `}</style>
 
-                        {sent ? (
-                            <div className="rounded-xl bg-green-50 p-4 text-sm text-green-700 ring-1 ring-green-200">
-                                Tautan reset kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk Anda.
-                            </div>
-                        ) : (
-                            <form onSubmit={submit} className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                                        Alamat Email
-                                    </label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            id="email"
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="nama@email.com"
-                                            className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-4 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                                            required
-                                            autoComplete="email"
-                                            autoFocus
-                                        />
-                                    </div>
-                                    <InputError message={errors.email} />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-60"
-                                >
-                                    Kirim Tautan Reset <span aria-hidden>→</span>
-                                </button>
-                            </form>
-                        )}
-
-                        <p className="mt-6 text-center text-sm text-gray-500">
-                            Ingat kata sandi?{' '}
-                            <Link href="/login" className="font-bold text-gray-900 hover:underline">
-                                Kembali ke Login
-                            </Link>
+            <div 
+                className="flex min-h-screen items-center justify-center bg-gray-50 p-4 font-sans text-gray-900 sm:p-8"
+                style={{ fontFamily: "'Outfit', sans-serif" }}
+            >
+                {/* Padding vertikal (py) dikurangi agar kartu lebih padat */}
+                <div className="w-full max-w-md rounded-3xl bg-white px-8 py-10 shadow-xl shadow-gray-200/50 ring-1 ring-gray-100 sm:px-10 sm:py-10">
+                    
+                    {/* Margin bottom dikurangi dari mb-8 menjadi mb-6 */}
+                    <div className="mb-6 text-center">
+                        <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                            Lupa Kata Sandi?
+                        </h2>
+                        <p className="mt-3 text-sm leading-relaxed text-gray-500">
+                            Jangan khawatir. Masukkan email Anda di bawah ini dan kami akan mengirimkan tautan untuk mengatur ulang kata sandi Anda.
                         </p>
                     </div>
-                </div>
-            </div>
 
-            {/* Right panel — image */}
-            <div
-                className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex"
-                style={{
-                    backgroundImage: 'url(/vessel_2.png)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                }}
-            >
-                <div className="absolute inset-0 bg-[#0a3240]/60" />
+                    {sent ? (
+                        <div className="rounded-2xl border border-green-100 bg-green-50 p-5 text-center text-sm font-medium text-green-700">
+                            Tautan reset kata sandi telah dikirim. <br/> Silakan periksa kotak masuk email Anda.
+                        </div>
+                    ) : (
+                        <form onSubmit={submit} className="space-y-5">
+                            <div className="space-y-2">
+                                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                                    Alamat Email
+                                </label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="nama@email.com"
+                                        className="w-full rounded-xl border border-gray-100 bg-gray-50 py-3 pl-12 pr-4 text-sm text-gray-900 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-400/10 [&:autofill]:shadow-[inset_0_0_0px_1000px_#f9fafb] [&:autofill]:[-webkit-text-fill-color:#111827]"
+                                        required
+                                        autoComplete="email"
+                                        autoFocus
+                                    />
+                                </div>
+                                <InputError message={errors.email} />
+                            </div>
 
-                <div className="relative z-10 flex justify-end">
-                    <Link href="/" className="flex items-center gap-2">
-                        <AppLogoIcon className="h-7 w-auto" />
-                    </Link>
-                </div>
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className={`
+                                    group mt-2 flex w-full items-center justify-center rounded-xl py-3.5
+                                    text-sm font-bold text-white shadow-md
+                                    bg-gradient-to-r from-amber-400 to-orange-500
+                                    transition-all duration-300 hover:scale-[1.02]
+                                    hover:shadow-[0_0_20px] hover:shadow-amber-500/60
+                                    disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none
+                                `}
+                            >
+                                Kirim Tautan Reset <span aria-hidden className="ml-2 transition-transform duration-300 group-hover:translate-x-1">→</span>
+                            </button>
+                        </form>
+                    )}
 
-                <div className="relative z-10 space-y-4 text-right">
-                    <h1 className="text-5xl font-bold leading-tight">
-                        Navigasi Masa Depan Perikanan Nasional
-                    </h1>
-                    <p className="ml-auto max-w-sm text-sm text-white/75">
-                        Memberdayakan nelayan Indonesia dengan presisi data satelit dan kecerdasan oseanik kelas dunia.
+                    {/* Margin top sedikit dirapatkan dari mt-8 menjadi mt-6 */}
+                    <p className="mt-6 text-center text-sm text-gray-500">
+                        Ingat kata sandi?{' '}
+                        <Link href="/login" className="font-bold text-amber-500 transition hover:text-amber-600 hover:underline">
+                            Kembali ke Login
+                        </Link>
                     </p>
                 </div>
-
-                <div className="relative z-10 flex justify-end gap-10">
-                    <div className="text-right">
-                        <p className="text-2xl font-bold">98%</p>
-                        <p className="text-[11px] font-medium uppercase tracking-widest text-white/60">
-                            Akurasi Deteksi
-                        </p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-2xl font-bold">Real-time</p>
-                        <p className="text-[11px] font-medium uppercase tracking-widest text-white/60">
-                            Data Cuaca
-                        </p>
-                    </div>
-                </div>
             </div>
-        </div>
+        </>
     );
 }
