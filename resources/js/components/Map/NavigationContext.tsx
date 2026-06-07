@@ -9,6 +9,9 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
+import { findRouteOffline } from '@/lib/offline/route';
+import { cacheComputedRoute, readCachedRoute } from '@/lib/offline/route-cache';
+
 export type LatLng = { lat: number; lng: number };
 
 // idle → planning → planned → (confirm) → active ; error bisa terjadi dari planning.
@@ -50,6 +53,9 @@ interface NavState {
     etaHours: number | null;
     fuelPrices: FuelPrices | null;
     error: string | null;
+    // true bila rute dihitung sebagai perkiraan kasar (garis lurus offline),
+    // bukan jalur jaringan laut — UI menandainya.
+    approximate: boolean;
 }
 
 interface NavContextValue extends NavState {
@@ -72,6 +78,7 @@ const initialState: NavState = {
     etaHours: null,
     fuelPrices: null,
     error: null,
+    approximate: false,
 };
 
 const NavigationContext = createContext<NavContextValue | null>(null);
@@ -100,6 +107,62 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
                 destination,
                 error: null,
             }));
+
+            // Perute offline (graf laut di sisi klien) — dipakai saat tanpa sinyal
+            // atau bila server gagal. Tidak melempar; bila titik jauh dari jaringan,
+            // mengembalikan garis lurus dengan flag `approximate`.
+            const planOffline = async () => {
+                const r = await findRouteOffline(
+                    userPosition.lat,
+                    userPosition.lng,
+                    destination.lat,
+                    destination.lng,
+                );
+                const distanceKm = r.distance;
+
+                setState({
+                    status: 'planned',
+                    origin: userPosition,
+                    destination,
+                    routeGeoJson: r.route as Feature,
+                    distanceKm,
+                    etaHours: distanceKm / BOAT_SPEED_KMH,
+                    fuelPrices: null, // harga BBM butuh server — tak tersedia offline
+                    error: null,
+                    approximate: r.approximate ?? false,
+                });
+            };
+
+            // Tanpa sinyal: pakai rute server yang sudah di-cache saat zona diklik
+            // online (rute laut akurat); kalau tak ada, baru perute graf klien.
+            if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                const cached = await readCachedRoute(
+                    userPosition.lat,
+                    userPosition.lng,
+                    destination.lat,
+                    destination.lng,
+                );
+
+                if (cached) {
+                    setState({
+                        status: 'planned',
+                        origin: userPosition,
+                        destination,
+                        routeGeoJson: cached.route,
+                        distanceKm: cached.distance,
+                        etaHours: cached.distance / BOAT_SPEED_KMH,
+                        fuelPrices: null,
+                        error: null,
+                        approximate: false,
+                    });
+
+                    return;
+                }
+
+                await planOffline();
+
+                return;
+            }
 
             try {
                 const res = await axios.get('/api/map/route', {
@@ -132,13 +195,29 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
                     etaHours,
                     fuelPrices: (data.fuel as FuelPrices) ?? null,
                     error: null,
+                    approximate: false,
                 });
-            } catch (e: unknown) {
-                const message =
-                    (axios.isAxiosError(e) &&
-                        (e.response?.data?.error as string)) ||
-                    (e instanceof Error ? e.message : 'Gagal menghitung rute.');
-                setState((s) => ({ ...s, status: 'error', error: message }));
+
+                // Simpan rute server ini agar tersedia saat offline nanti.
+                void cacheComputedRoute(
+                    userPosition.lat,
+                    userPosition.lng,
+                    destination.lat,
+                    destination.lng,
+                    data.route as Feature,
+                    distanceKm,
+                );
+            } catch {
+                // Server gagal walau online — coba perute offline sebelum menyerah.
+                try {
+                    await planOffline();
+                } catch {
+                    setState((s) => ({
+                        ...s,
+                        status: 'error',
+                        error: 'Gagal menghitung rute.',
+                    }));
+                }
             }
         },
         [userPosition],

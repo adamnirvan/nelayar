@@ -2,13 +2,17 @@ import { createInertiaApp } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
-import { applyStoredToken } from '@/lib/auth';
 import AppLayout from '@/layouts/app-layout';
 import GisLayout from '@/layouts/AppLayout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { applyStoredToken } from '@/lib/auth';
+import { startOfflineSync } from '@/lib/offline/sync';
+import { registerServiceWorker } from '@/lib/pwa';
 
 applyStoredToken();
+registerServiceWorker();
+startOfflineSync();
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 

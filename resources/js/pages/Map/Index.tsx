@@ -3,17 +3,24 @@ import { format, addDays, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
 import type { FeatureCollection } from 'geojson';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import MapContainer from '@/components/Map/MapContainer';
 import MapHeader from '@/components/Map/MapHeader';
 import type { MapLayer } from '@/components/Map/MapHeader';
 import NavigationBanner from '@/components/Map/NavigationBanner';
+import {
+    NavigationProvider,
+    useNavigation,
+} from '@/components/Map/NavigationContext';
+import SyncStatusBadge from '@/components/Map/SyncStatusBadge';
 // GABUNGAN IMPORT: Mengambil NavigationProvider, useNavigation (milikmu) dan WeatherCard (milik temanmu)
-import { NavigationProvider, useNavigation } from '@/components/Map/NavigationContext';
 import ZppiOverlays from '@/components/Map/ZppiOverlays';
 import type { SearchTarget } from '@/components/Map/ZppiOverlaysLeaflet';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 import { buildFishIndex } from '@/lib/fishSearch';
 import type { FishSuggestion } from '@/lib/fishSearch';
+import { readZoneIndex } from '@/lib/offline/read';
 
 interface Props {
     selectedDate: string;
@@ -23,9 +30,14 @@ interface Props {
 }
 
 // Komponen pembantu untuk membaca status Zen Mode tanpa memecah file Index
-function ZenModeController({ children }: { children: (isZen: boolean) => React.ReactNode }) {
+function ZenModeController({
+    children,
+}: {
+    children: (isZen: boolean) => React.ReactNode;
+}) {
     const nav = useNavigation();
     const isZen = nav.status === 'planned' || nav.status === 'active';
+
     return <>{children(isZen)}</>;
 }
 
@@ -38,6 +50,23 @@ export default function MapIndex({
     const [dayOffset, setDayOffset] = useState<number>(0);
     const [isChangingDate, setIsChangingDate] = useState<boolean>(false);
 
+    const online = useOnlineStatus();
+    // Saat offline, slider tanggal membaca IndexedDB (disinkron selagi di darat)
+    // dan menimpa prop Inertia di sini. Saat online, prop server yang dipakai.
+    const [offlineView, setOfflineView] = useState<{
+        selectedDate: string;
+        zppiGeoJson: FeatureCollection | null;
+        sstFileUrl: string | null;
+        chlFileUrl: string | null;
+    } | null>(null);
+
+    const view = offlineView ?? {
+        selectedDate,
+        zppiGeoJson,
+        sstFileUrl,
+        chlFileUrl,
+    };
+
     const [activeLayer, setActiveLayer] = useState<MapLayer>('processed');
     const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
     const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -46,8 +75,8 @@ export default function MapIndex({
     const [clearSignal, setClearSignal] = useState<number>(0);
 
     const fishSuggestions = useMemo(
-        () => buildFishIndex(zppiGeoJson),
-        [zppiGeoJson],
+        () => buildFishIndex(view.zppiGeoJson),
+        [view.zppiGeoJson],
     );
 
     const [zoneOpen, setZoneOpen] = useState<boolean>(false);
@@ -61,6 +90,7 @@ export default function MapIndex({
 
     const handleSearch = async (query: string) => {
         setIsSearching(true);
+
         try {
             const res = await fetch(
                 `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=id&q=${encodeURIComponent(query)}`,
@@ -82,7 +112,7 @@ export default function MapIndex({
     };
 
     const formattedDisplayDate = format(
-        parseISO(selectedDate),
+        parseISO(view.selectedDate),
         'EEEE, d MMMM',
         { locale: id },
     );
@@ -103,21 +133,46 @@ export default function MapIndex({
             'yyyy-MM-dd',
         );
 
-        router.get(
-            window.location.pathname,
-            { date: targetDateString },
-            {
-                preserveState: true,
-                preserveScroll: true,
-                only: [
-                    'selectedDate',
-                    'zppiGeoJson',
-                    'sstFileUrl',
-                    'chlFileUrl',
-                ],
-                onFinish: () => setIsChangingDate(false),
-            },
-        );
+        // ONLINE: ambil dari server seperti biasa; lepas penimpaan offline.
+        if (online) {
+            setOfflineView(null);
+
+            router.get(
+                window.location.pathname,
+                { date: targetDateString },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: [
+                        'selectedDate',
+                        'zppiGeoJson',
+                        'sstFileUrl',
+                        'chlFileUrl',
+                    ],
+                    onFinish: () => setIsChangingDate(false),
+                },
+            );
+
+            return;
+        }
+
+        // OFFLINE: baca tanggal ini dari IndexedDB (router.get akan gagal tanpa jaringan).
+        readZoneIndex(targetDateString)
+            .then((idx) => {
+                if (idx) {
+                    setOfflineView({
+                        selectedDate: targetDateString,
+                        zppiGeoJson: idx.collection,
+                        sstFileUrl: idx.sstFileUrl,
+                        chlFileUrl: idx.chlFileUrl,
+                    });
+                } else {
+                    toast.error(
+                        'Data tanggal ini belum tersimpan untuk mode offline.',
+                    );
+                }
+            })
+            .finally(() => setIsChangingDate(false));
     };
 
     return (
@@ -126,10 +181,10 @@ export default function MapIndex({
                 {/* 1. Kanvas Utama Peta */}
                 <MapContainer>
                     <ZppiOverlays
-                        selectedDate={selectedDate}
-                        zppiGeoJson={zppiGeoJson}
-                        sstFileUrl={sstFileUrl}
-                        chlFileUrl={chlFileUrl}
+                        selectedDate={view.selectedDate}
+                        zppiGeoJson={view.zppiGeoJson}
+                        sstFileUrl={view.sstFileUrl}
+                        chlFileUrl={view.chlFileUrl}
                         activeLayer={activeLayer}
                         searchTarget={searchTarget}
                         fishFilter={fishFilter}
@@ -142,7 +197,9 @@ export default function MapIndex({
                     {(isZen) => (
                         <>
                             {/* HEADER */}
-                            <div className={`transition-all duration-700 ease-in-out z-[40] absolute top-0 w-full pointer-events-none ${isZen ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'}`}>
+                            <div
+                                className={`pointer-events-none absolute top-0 z-[40] w-full transition-all duration-700 ease-in-out ${isZen ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'}`}
+                            >
                                 <MapHeader
                                     activeLayer={activeLayer}
                                     onLayerChange={setActiveLayer}
@@ -157,24 +214,33 @@ export default function MapIndex({
                                 />
                             </div>
 
-                           
+                            {/* STATUS SINKRONISASI OFFLINE (pojok kiri-bawah) */}
+                            <div
+                                className={`pointer-events-none absolute bottom-10 left-4 z-[45] transition-all duration-500 ease-in-out ${
+                                    isZen
+                                        ? 'translate-y-20 opacity-0'
+                                        : 'translate-y-0 opacity-100'
+                                }`}
+                            >
+                                <SyncStatusBadge />
+                            </div>
 
                             {/* PANEL SLIDER KAPAL LAYAR BAWAH */}
-                            <div 
+                            <div
                                 style={{ fontFamily: "'Outfit', sans-serif" }}
                                 className={`
                                 /* DIUBAH: w-[95%] agar di mobile lebih lega, max-w-[500px] agar di desktop lebih lebar dari sebelumnya (max-w-md) */
-                                pointer-events-auto absolute left-1/2 z-[900] w-[95%] max-w-[500px] -translate-x-1/2 
+                                pointer-events-auto absolute left-1/2 z-[900] w-[95%] max-w-[500px] -translate-x-1/2
                                 transition-all duration-500 ease-in-out bottom-8
-                                ${isZen 
-                                    ? 'translate-y-20 opacity-0 pointer-events-none' 
-                                    : zoneOpen 
-                                        ? 'translate-y-8 opacity-0 pointer-events-none md:translate-y-0 md:opacity-100 md:pointer-events-auto' 
-                                        : 'translate-y-0 opacity-100' 
+                                ${isZen
+                                    ? 'translate-y-20 opacity-0 pointer-events-none'
+                                    : zoneOpen
+                                        ? 'translate-y-8 opacity-0 pointer-events-none md:translate-y-0 md:opacity-100 md:pointer-events-auto'
+                                        : 'translate-y-0 opacity-100'
                                 }
                             `}>
                                 <div className="glass-panel rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all border border-white/60 backdrop-blur-xl bg-white/70">
-                                    
+
                                     {/* HEADER */}
                                     <div className="mb-3 flex items-center justify-between px-2">
                                         <div>
@@ -193,10 +259,9 @@ export default function MapIndex({
                                                 )}
                                             </div>
                                         </div>
-                                        
                                         {/* TEKS RESPONSIF */}
                                         <div className="flex-shrink-0 text-right pr-1">
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     if (dayOffset !== 0) {
                                                         setDayOffset(0);
@@ -206,8 +271,8 @@ export default function MapIndex({
                                                 disabled={dayOffset === 0}
                                                 title={dayOffset !== 0 ? "Kembali ke Hari Ini" : ""}
                                                 className={`text-[11px] font-black uppercase tracking-widest transition-colors duration-300 ${
-                                                    dayOffset === 0 
-                                                        ? 'text-blue-600 cursor-default' 
+                                                    dayOffset === 0
+                                                        ? 'text-blue-600 cursor-default'
                                                         : 'text-slate-400 hover:text-blue-600 cursor-pointer'
                                                 }`}
                                             >
@@ -239,11 +304,14 @@ export default function MapIndex({
                                         </div>
 
                                         <input
+                                            id="forecast-day-offset"
+                                            name="forecast_day_offset"
                                             type="range"
                                             min="0"
                                             max="9"
                                             step="1"
                                             value={dayOffset}
+                                            aria-label="Pilih tanggal prakiraan"
                                             onChange={(e) => handleSliderDrag(parseInt(e.target.value))}
                                             onMouseUp={commitSliderChange}
                                             onTouchEnd={commitSliderChange}
