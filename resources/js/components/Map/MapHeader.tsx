@@ -177,11 +177,14 @@ export default function MapHeader({
                     </span>
                     <input
                         ref={inputRef}
+                        id="map-search-desktop"
+                        name="map_search"
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => { setFocused(true); setMenuOpen(false); setLayerMenuOpen(false); }}
                         onBlur={() => setTimeout(() => setFocused(false), 150)}
+                        aria-label="Cari wilayah atau ikan"
                         placeholder="Cari wilayah atau ikan"
                         className="glass-panel w-full h-[52px] rounded-full pl-11 pr-10 text-base text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-white/60 focus:outline-none shadow-sm"
                     />
@@ -262,11 +265,14 @@ export default function MapHeader({
                             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
                         </span>
                         <input
+                            id="map-search-mobile"
+                            name="map_search"
                             type="text"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             onFocus={() => { setFocused(true); setMenuOpen(false); setLayerMenuOpen(false); }}
                             onBlur={() => setTimeout(() => setFocused(false), 150)}
+                            aria-label="Cari wilayah atau ikan"
                             placeholder="Cari wilayah atau ikan"
                             className="glass-panel w-full h-[48px] rounded-full pl-11 pr-10 text-[13px] text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-white/60 focus:outline-none shadow-sm"
                         />

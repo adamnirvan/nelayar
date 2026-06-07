@@ -4,6 +4,8 @@
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
+/public/sw.js
+/public/manifest.webmanifest
 /public/storage
 /storage/*.key
 /storage/pail
@@ -28,3 +30,4 @@ yarn-error.log
 /.vscode
 /.zed
 .venv/
+/public/tiles

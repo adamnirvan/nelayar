@@ -45,6 +45,35 @@ class MapController extends Controller
     }
 
     /**
+     * Unduh SEMUA zona (poligon penuh) untuk satu tanggal dalam satu respons,
+     * beserta URL raster SST/Chl-nya. Dikonsumsi oleh sinkronisasi offline yang
+     * menyimpan H+0..H+9 ke IndexedDB selagi nelayan masih di darat, agar peta
+     * tetap bisa digambar tanpa internet di laut. Bandingkan dengan showZone
+     * (satu zona, lazy saat diklik) — endpoint ini sengaja mengirim geometri berat.
+     */
+    public function bulkZones(Request $request, OceanService $ocean): JsonResponse
+    {
+        $date = $request->query('date', Carbon::today()->format('Y-m-d'));
+
+        $collection = $ocean->getAllZonesByDate($date);
+
+        // Sertakan URL raster dengan logika identik index() agar service worker
+        // bisa meng-cache PNG yang sama saat di-warm oleh proses sinkronisasi.
+        $sstPath = "grids/{$date}/sst_raster.png";
+        $chlPath = "grids/{$date}/chl_raster.png";
+
+        $collection['sstFileUrl'] = Storage::disk('public')->exists($sstPath)
+            ? asset("storage/{$sstPath}")
+            : null;
+        $collection['chlFileUrl'] = Storage::disk('public')->exists($chlPath)
+            ? asset("storage/{$chlPath}")
+            : null;
+        $collection['date'] = $date;
+
+        return response()->json($collection);
+    }
+
+    /**
      * Kembalikan satu zona ZPPI lengkap dengan geometri poligonnya.
      * Dipanggil lazy oleh frontend (via axios) saat sebuah marker zona diklik,
      * agar muatan awal peta cukup mengirim centroid saja (lihat OceanService).

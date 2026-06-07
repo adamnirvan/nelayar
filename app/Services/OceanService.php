@@ -174,6 +174,51 @@ class OceanService
     }
 
     /**
+     * Ambil SEMUA zona untuk satu tanggal lengkap dengan poligon penuhnya,
+     * dalam satu respons. Dipakai oleh sinkronisasi offline (Phase 2): klien
+     * mengunduh seluruh poligon H+0..H+9 sekali saat masih ada sinyal di darat,
+     * lalu menyimpannya di IndexedDB agar peta tetap bisa digambar di laut.
+     *
+     * Berbeda dengan getGeoJsonByDate (centroid saja, untuk muatan awal yang
+     * ringan): di sini geometri berat memang sengaja dikirim. Tiap feature juga
+     * membawa properti `centroid` ([lng, lat] via ST_PointOnSurface) supaya klien
+     * bisa membangun ulang lapisan marker tanpa menghitung sendiri.
+     */
+    public function getAllZonesByDate(string $date): array
+    {
+        $rows = DB::select('
+            SELECT id, ST_AsGeoJSON(geom) AS geojson,
+                   ST_X(ST_PointOnSurface(geom)) AS lng,
+                   ST_Y(ST_PointOnSurface(geom)) AS lat,
+                   confidence, ikan_cocok, sst_rata, chl_rata, zone_date::text AS zone_date
+            FROM zppi_zones
+            WHERE zone_date = ?
+            ORDER BY created_at DESC
+        ', [$date]);
+
+        $features = array_map(function ($row) {
+            return [
+                'type' => 'Feature',
+                'geometry' => json_decode($row->geojson, true),
+                'properties' => [
+                    'id' => (int) $row->id,
+                    'confidence' => $row->confidence,
+                    'zone_date' => $row->zone_date,
+                    'ikan_cocok' => json_decode($row->ikan_cocok, true) ?? [],
+                    'sst_rata' => $row->sst_rata,
+                    'chl_rata' => $row->chl_rata,
+                    'centroid' => [(float) $row->lng, (float) $row->lat],
+                ],
+            ];
+        }, $rows);
+
+        return [
+            'type' => 'FeatureCollection',
+            'features' => $features,
+        ];
+    }
+
+    /**
      * Ambil satu zona lengkap dengan geometri poligonnya (GeoJSON Feature).
      * Dipanggil lazy oleh frontend saat sebuah marker zona diklik, sehingga
      * geometri berat tidak ikut dikirim pada muatan awal peta.

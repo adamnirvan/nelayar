@@ -3,8 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
-        "build:ssr": "vite build && vite build --ssr",
+        "build": "vite build && node scripts/pwa-postbuild.mjs",
+        "build:ssr": "vite build && vite build --ssr && node scripts/pwa-postbuild.mjs",
         "dev": "vite",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
@@ -29,7 +29,8 @@
         "eslint-plugin-react-hooks": "^7.0.0",
         "prettier": "^3.4.2",
         "prettier-plugin-tailwindcss": "^0.6.11",
-        "typescript-eslint": "^8.23.0"
+        "typescript-eslint": "^8.23.0",
+        "vite-plugin-pwa": "^1.3.0"
     },
     "dependencies": {
         "@headlessui/react": "^2.2.0",
@@ -57,13 +58,17 @@
         "clsx": "^2.1.1",
         "concurrently": "^9.0.1",
         "date-fns": "^4.3.0",
+        "dexie": "^4.4.3",
         "framer-motion": "^12.40.0",
+        "geojson-path-finder": "^2.1.0",
         "globals": "^15.14.0",
         "input-otp": "^1.4.2",
         "laravel-vite-plugin": "^3.1",
         "leaflet": "^1.9.4",
         "leaflet.markercluster": "^1.5.3",
         "lucide-react": "^0.475.0",
+        "pmtiles": "^4.4.1",
+        "protomaps-leaflet": "^5.1.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-leaflet": "^5.0.0",
@@ -73,7 +78,8 @@
         "tailwindcss": "^4.0.0",
         "tw-animate-css": "^1.4.0",
         "typescript": "^5.7.2",
-        "vite": "^8.0.0"
+        "vite": "^8.0.0",
+        "workbox-window": "^7.4.1"
     },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",

@@ -10,6 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, GeoJSON, useMap } from 'react-leaflet';
 import { featureHasFish } from '@/lib/fishSearch';
 import { findPointsWithinExpandingRadius } from '@/lib/geo';
+import { readZone } from '@/lib/offline/read';
+import { prefetchRoute } from '@/lib/offline/route-cache';
 import { useNavigation } from './NavigationContext';
 import ZoneDetailSidebar from './ZoneDetailSidebar';
 
@@ -317,25 +319,55 @@ export default function ZppiLayerLeaflet({
                 duration: 1.5,
             });
 
-            // Ambil poligon penuh zona ini secara lazy (lihat MapController@showZone).
+            // Ambil poligon penuh zona ini. Cache offline (IndexedDB) dicoba lebih
+            // dulu: instan & tetap jalan tanpa sinyal di laut; baru jatuh ke server
+            // (lihat MapController@showZone) bila belum tersinkron.
             const id = zone.feature.properties?.id;
 
             if (id != null) {
                 fetchAbort.current?.abort();
                 const controller = new AbortController();
                 fetchAbort.current = controller;
+                const numId = Number(id);
 
-                axios
-                    .get<Feature>(`/api/map/zone/${id}`, {
-                        signal: controller.signal,
-                    })
-                    .then((res) => setSelectedGeometry(res.data))
-                    .catch(() => {
-                        // Dibatalkan/gagal: cukup tampilkan marker + sidebar tanpa outline.
-                    });
+                void (async () => {
+                    const cached = await readZone(numId);
+
+                    if (controller.signal.aborted) {
+                        return;
+                    }
+
+                    if (cached) {
+                        setSelectedGeometry(cached);
+
+                        return;
+                    }
+
+                    try {
+                        const res = await axios.get<Feature>(
+                            `/api/map/zone/${numId}`,
+                            { signal: controller.signal },
+                        );
+                        setSelectedGeometry(res.data);
+                    } catch {
+                        // Dibatalkan/gagal: tampilkan marker + sidebar tanpa outline.
+                    }
+                })();
+            }
+
+            // Prefetch rute server (searoute) dari posisi nelayan ke zona ini lalu
+            // simpan ke cache, sehingga saat offline & menekan "Mulai Navigasi"
+            // rute laut yang akurat tetap tersedia (fire-and-forget, online saja).
+            if (userPosition) {
+                void prefetchRoute(
+                    userPosition.lat,
+                    userPosition.lng,
+                    zone.center.lat,
+                    zone.center.lng,
+                );
             }
         },
-        [map],
+        [map, userPosition],
     );
 
     // Batalkan permintaan poligon yang masih berjalan saat komponen dilepas.
