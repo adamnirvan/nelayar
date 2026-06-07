@@ -30,13 +30,32 @@ class WeatherService
             return $cached->openmeteo_data;
         }
 
-        $data = $this->fetchOpenMeteo($lat, $lon, $date);
+        try {
+            // Berusaha mengambil data asli dari satelit Open-Meteo
+            $data = $this->fetchOpenMeteo($lat, $lon, $date);
+        } catch (\Exception $e) {
+            // Jika server down, timeout, atau error, gunakan Data Dummy
+            $data = [
+                'source' => 'mock_data', // Penanda bahwa ini data cadangan
+                'date' => $date,
+                'temp_max' => 31.5,
+                'temp_min' => 25.0,
+                'wind_speed' => 12.5,
+                'wind_direction' => 'TL', // Timur Laut (Sesuai format array compass)
+                'wave_height' => 1.2,
+                'weather_desc' => 'Cerah Berawan',
+                'fetched_at' => now()->toISOString(),
+            ];
+        }
+        // =========================================================
 
         WeatherCache::updateOrCreate(
             ['latitude' => $lat, 'longitude' => $lon, 'forecast_date' => $date],
             [
                 'openmeteo_data' => $data,
-                'active_source' => 'openmeteo',
+                // [REVISI KECIL]: Ubah hardcode 'openmeteo' menjadi dinamis 
+                // agar database mencatat apakah ini data asli atau mock_data
+                'active_source' => $data['source'], 
                 'fetched_at' => now(),
                 'expires_at' => now()->addMinutes(self::TTL_MINUTES),
             ]

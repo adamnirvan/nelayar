@@ -117,15 +117,19 @@ export default function MapIndex({
         { locale: id },
     );
 
-    const handleSliderChange = (value: number) => {
+    // 1. Fungsi menggeser visual kapal (instan tanpa memanggil backend)
+    const handleSliderDrag = (value: number) => {
         setDayOffset(value);
-        setIsChangingDate(true);
+    };
 
+    // 2. Fungsi memanggil backend (hanya saat mouse/layar sentuh dilepas)
+    const commitSliderChange = () => {
+        setIsChangingDate(true);
         setFishFilter(null);
         setClearSignal((n) => n + 1);
 
         const targetDateString = format(
-            addDays(new Date(), value),
+            addDays(new Date(), dayOffset),
             'yyyy-MM-dd',
         );
 
@@ -221,44 +225,84 @@ export default function MapIndex({
                                 <SyncStatusBadge />
                             </div>
 
-                            {/* SLIDER WAKTU: Dilengkapi "Spatial Awareness" milikmu */}
+                            {/* PANEL SLIDER KAPAL LAYAR BAWAH */}
                             <div
-                                className={`/* Visibilitas Zen Mode & Spatial Awareness */ pointer-events-auto absolute bottom-10 left-1/2 z-[900] w-[90%] max-w-md -translate-x-1/2 transition-all duration-500 ease-in-out ${
-                                    isZen
-                                        ? 'pointer-events-none translate-y-20 opacity-0'
-                                        : zoneOpen
-                                          ? 'pointer-events-none translate-y-8 opacity-0 md:pointer-events-auto md:translate-y-0 md:opacity-100'
-                                          : 'translate-y-0 opacity-100'
-                                } `}
-                            >
-                                <div className="glass-panel rounded-2xl p-5 shadow-xl transition-all">
-                                    <div className="mb-3 flex items-center justify-between">
+                                style={{ fontFamily: "'Outfit', sans-serif" }}
+                                className={`
+                                /* DIUBAH: w-[95%] agar di mobile lebih lega, max-w-[500px] agar di desktop lebih lebar dari sebelumnya (max-w-md) */
+                                pointer-events-auto absolute left-1/2 z-[900] w-[95%] max-w-[500px] -translate-x-1/2
+                                transition-all duration-500 ease-in-out bottom-8
+                                ${isZen
+                                    ? 'translate-y-20 opacity-0 pointer-events-none'
+                                    : zoneOpen
+                                        ? 'translate-y-8 opacity-0 pointer-events-none md:translate-y-0 md:opacity-100 md:pointer-events-auto'
+                                        : 'translate-y-0 opacity-100'
+                                }
+                            `}>
+                                <div className="glass-panel rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all border border-white/60 backdrop-blur-xl bg-white/70">
+
+                                    {/* HEADER */}
+                                    <div className="mb-3 flex items-center justify-between px-2">
                                         <div>
-                                            <span className="block text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+                                            <span className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-0.5">
                                                 Navigasi Waktu Operasional
                                             </span>
-                                            <div className="mt-0.5 flex items-center gap-2">
-                                                <h3 className="text-base font-bold text-gray-800">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-[18px] leading-none font-black text-slate-800 tracking-tight">
                                                     {formattedDisplayDate}
                                                 </h3>
                                                 {isChangingDate && (
-                                                    <span className="relative flex h-2 w-2">
+                                                    <span className="relative flex h-2 w-2 ml-1">
                                                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
                                                         <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
-                                        <div>
-                                            <span className="glass-inset rounded-full px-3 py-1 text-xs font-bold text-gray-900">
-                                                {dayOffset === 0
-                                                    ? 'Hari Ini'
-                                                    : `H+${dayOffset}`}
-                                            </span>
+                                        {/* TEKS RESPONSIF */}
+                                        <div className="flex-shrink-0 text-right pr-1">
+                                            <button
+                                                onClick={() => {
+                                                    if (dayOffset !== 0) {
+                                                        setDayOffset(0);
+                                                        router.get(window.location.pathname, { date: format(new Date(), 'yyyy-MM-dd') }, { preserveState: true, preserveScroll: true, only: ['selectedDate', 'zppiGeoJson', 'sstFileUrl', 'chlFileUrl'] });
+                                                    }
+                                                }}
+                                                disabled={dayOffset === 0}
+                                                title={dayOffset !== 0 ? "Kembali ke Hari Ini" : ""}
+                                                className={`text-[11px] font-black uppercase tracking-widest transition-colors duration-300 ${
+                                                    dayOffset === 0
+                                                        ? 'text-blue-600 cursor-default'
+                                                        : 'text-slate-400 hover:text-blue-600 cursor-pointer'
+                                                }`}
+                                            >
+                                                {dayOffset === 0 ? 'Hari Ini' : `H+${dayOffset}`}
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div className="relative pt-1">
+                                    {/* AREA SLIDER KAPAL LAYAR CUSTOM */}
+                                    {/* DIUBAH: Margin horizontal ditambah dari mx-4 menjadi mx-6 agar jarak dari dinding lebih jauh */}
+                                    <div className="relative h-8 flex items-center mb-1 mt-4 mx-6">
+                                        
+                                        <div className="absolute w-full h-2 bg-slate-200/70 rounded-full pointer-events-none shadow-inner border border-black/5"></div>
+
+                                        <div
+                                            className="absolute h-2 bg-blue-500 rounded-full pointer-events-none transition-all duration-150 ease-out"
+                                            style={{ width: `${(dayOffset / 9) * 100}%` }}
+                                        ></div>
+
+                                        <div
+                                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-blue-500 rounded-full shadow-[0_4px_10px_rgba(37,99,235,0.4)] border-[2.5px] border-white flex items-center justify-center pointer-events-none z-10 transition-transform"
+                                            style={{ left: `${(dayOffset / 9) * 100}%` }}
+                                        >
+                                            <svg className="w-3.5 h-3.5 text-white ml-[1px]" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 2L4 14h8V2z" />
+                                                <path d="M14 2v12h6L14 2z" />
+                                                <path d="M3 16h18c1.1 0 1.6.8 1.1 1.7l-2.2 3.3C19.3 21.6 18.2 22 17 22H7c-1.2 0-2.3-.4-2.9-1L1.9 17.7C1.4 16.8 1.9 16 3 16z" />
+                                            </svg>
+                                        </div>
+
                                         <input
                                             id="forecast-day-offset"
                                             name="forecast_day_offset"
@@ -268,19 +312,20 @@ export default function MapIndex({
                                             step="1"
                                             value={dayOffset}
                                             aria-label="Pilih tanggal prakiraan"
-                                            onChange={(e) =>
-                                                handleSliderChange(
-                                                    parseInt(e.target.value),
-                                                )
-                                            }
-                                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/30 accent-slate-700 focus:outline-none"
+                                            onChange={(e) => handleSliderDrag(parseInt(e.target.value))}
+                                            onMouseUp={commitSliderChange}
+                                            onTouchEnd={commitSliderChange}
+                                            className="absolute w-full h-full opacity-0 cursor-pointer z-20 m-0 touch-none left-0"
                                         />
-                                        <div className="mt-2 flex justify-between px-0.5 text-[10px] font-semibold text-gray-400">
-                                            <span>Sekarang</span>
-                                            <span>H+3</span>
-                                            <span>H+6</span>
-                                            <span>H+9 (Maksimal)</span>
-                                        </div>
+                                    </div>
+
+                                    {/* LABEL SKALA WAKTU */}
+                                    {/* DIUBAH: Margin horizontal menyesuaikan slider di atasnya (mx-6) */}
+                                    <div className="relative mt-2 h-4 mx-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest pointer-events-none">
+                                        <span className="absolute top-0 left-[0%] -translate-x-1/2 whitespace-nowrap">Sekarang</span>
+                                        <span className="absolute top-0 left-[33.33%] -translate-x-1/2 whitespace-nowrap">H+3</span>
+                                        <span className="absolute top-0 left-[66.66%] -translate-x-1/2 whitespace-nowrap">H+6</span>
+                                        <span className="absolute top-0 left-[100%] -translate-x-1/2 whitespace-nowrap">H+9 (Maks)</span>
                                     </div>
                                 </div>
                             </div>

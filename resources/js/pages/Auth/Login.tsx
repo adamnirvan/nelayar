@@ -85,7 +85,7 @@ export default function Login() {
                                     </label>
                                     <Link
                                         href="/forgot-password"
-                                        className="text-xs font-semibold text-amber-500 transition hover:text-amber-600 hover:underline"
+                                        className="text-xs font-semibold text-amber-400 transition hover:text-amber-500 hover:underline"
                                     >
                                         Lupa kata sandi?
                                     </Link>
@@ -138,7 +138,7 @@ export default function Login() {
                                 className={`
                                     mt-4 flex w-full items-center justify-center rounded-xl py-3.5
                                     text-sm font-bold text-white shadow-md
-                                    bg-linear-to-r from-yellow-400 to-amber-500
+                                    bg-amber-400
                                     transition-all duration-300 hover:scale-[1.02] 
                                     hover:shadow-[0_0_20px] hover:shadow-amber-500/60
                                     disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none
@@ -152,7 +152,7 @@ export default function Login() {
                             Belum punya akun?{' '}
                             <Link
                                 href="/register"
-                                className="font-bold text-amber-500 transition hover:text-amber-600 hover:underline"
+                                className="font-bold text-amber-400 transition hover:text-amber-500 hover:underline"
                             >
                                 Daftar Sekarang
                             </Link>

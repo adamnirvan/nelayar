@@ -5,10 +5,16 @@ import { useNavigation } from './NavigationContext';
 
 const createUserIcon = () => {
     return L.divIcon({
-        className: 'user-location-wrapper',
-        html: '<div class="user-location-marker"></div>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
+        className: 'bg-transparent border-none', // Menghapus kotak putih default Leaflet
+        html: `
+            <div class="relative flex items-center justify-center w-8 h-8">
+                <span class="absolute w-full h-full bg-blue-400 rounded-full animate-ping opacity-60"></span>
+                
+                <span class="relative w-4 h-4 bg-blue-500 rounded-full border-[2.5px] border-white shadow-md z-10"></span>
+            </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16], // Titik jangkar tepat di tengah (32 / 2)
     });
 };
 

@@ -296,3 +296,53 @@
 .leaflet-control-zoom {
     display: none !important;
 }
+
+/* ========================================================
+   ANIMASI "DENYUT BERGANTIAN" UNTUK MARKER IKAN
+   ======================================================== */
+.staggered-ping {
+    /* Animasi berjalan selama 2 detik terus-menerus */
+    animation: premiumRadarPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Membagi jeda (delay) berdasarkan urutan render marker di Leaflet (Grup 1, 2, dan 3) */
+.leaflet-marker-icon:nth-child(3n+1) .staggered-ping {
+    animation-delay: 0s;
+}
+.leaflet-marker-icon:nth-child(3n+2) .staggered-ping {
+    animation-delay: 0.6s;
+}
+.leaflet-marker-icon:nth-child(3n+3) .staggered-ping {
+    animation-delay: 1.2s;
+}
+
+@keyframes premiumRadarPing {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    75%, 100% {
+        transform: scale(2.2);
+        opacity: 0;
+    }
+}
+
+/* ========================================================
+   ANIMASI "BREATHING SCALE" UNTUK MARKER ZONA TERDEKAT
+   ======================================================== */
+.nearby-breathing-scale {
+    /* Animasi membesar-mengecil berjalan bolak-balik selama 1.5 detik */
+    animation: markerBreathing 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes markerBreathing {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 5px rgba(250, 204, 21, 0.4);
+    }
+    100% {
+        transform: scale(1.15); /* Membesar 15% */
+        box-shadow: 0 0 20px rgba(250, 204, 21, 0.9); /* Glow kuning lebih terang saat membesar */
+    }
+}
+

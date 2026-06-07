@@ -91,11 +91,26 @@ class OceanService
                     continue;
                 }
 
-                // INSERT MURNI KE KOLOM MASING-MASING
+                // Buat variabel ini dulu di atas DB::statement
+                $rawGeom = json_encode($geom);
+
+                // INSERT MURNI KE KOLOM MASING-MASING DENGAN CLIPPING SUPER AKURAT
                 DB::statement('
                     INSERT INTO zppi_zones
                         (ocean_data_id, zone_date, ikan_cocok, sst_rata, chl_rata, confidence, geom, created_at, updated_at)
-                    VALUES (?, ?, ?::jsonb, ?, ?, ?, ST_Multi(ST_GeomFromGeoJSON(?)), now(), now())
+                    VALUES (?, ?, ?::jsonb, ?, ?, ?, 
+                        ST_Multi(
+                            ST_Difference(
+                                ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(?), 4326)),
+                                COALESCE(
+                                    (SELECT ST_Union(ST_MakeValid(lb.geom)) 
+                                     FROM land_boundaries lb 
+                                     WHERE ST_Intersects(lb.geom, ST_SetSRID(ST_GeomFromGeoJSON(?), 4326))),
+                                    ST_GeomFromText(\'GEOMETRYCOLLECTION EMPTY\', 4326)
+                                )
+                            )
+                        ), 
+                    now(), now())
                 ', [
                     $oceanData->id,
                     $date,
@@ -103,7 +118,8 @@ class OceanService
                     $props['sst_rata'] ?? null,
                     $props['chl_rata'] ?? null,
                     $data['confidence'] ?? 1.0,
-                    json_encode($geom),
+                    $rawGeom, // Placeholder ke-7: Untuk target yang mau dipotong
+                    $rawGeom  // Placeholder ke-8: Untuk mencari pulau yang tertabrak
                 ]);
                 $inserted++;
             }

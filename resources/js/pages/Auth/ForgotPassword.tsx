@@ -87,7 +87,7 @@ export default function ForgotPassword() {
                                 className={`
                                     group mt-2 flex w-full items-center justify-center rounded-xl py-3.5
                                     text-sm font-bold text-white shadow-md
-                                    bg-gradient-to-r from-amber-400 to-orange-500
+                                    bg-amber-400
                                     transition-all duration-300 hover:scale-[1.02]
                                     hover:shadow-[0_0_20px] hover:shadow-amber-500/60
                                     disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none
@@ -101,7 +101,7 @@ export default function ForgotPassword() {
                     {/* Margin top sedikit dirapatkan dari mt-8 menjadi mt-6 */}
                     <p className="mt-6 text-center text-sm text-gray-500">
                         Ingat kata sandi?{' '}
-                        <Link href="/login" className="font-bold text-amber-500 transition hover:text-amber-600 hover:underline">
+                        <Link href="/login" className="font-bold text-amber-400 hover:underline">
                             Kembali ke Login
                         </Link>
                     </p>

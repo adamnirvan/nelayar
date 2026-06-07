@@ -12,7 +12,6 @@ export default function Landing() {
         <>
             <Head title="Nelayar - Navigasi Masa Depan Perikanan" />
             
-            {/* Inject Font Outfit secara global untuk halaman ini */}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
                 html { scroll-behavior: smooth; }
@@ -24,22 +23,22 @@ export default function Landing() {
             >
                 <Navbar />
 
-                {/* 1. Header & Text In-Animation */}
                 <HeroSection />
 
-                
+                {/* Berikan ID yang sesuai dengan link di Navbar */}
+                <div id="demo">
+                    <VideoShowcase />
+                </div>
 
-                {/* 3. Video Box Parallax */}
-                <VideoShowcase />
-
-                {/* 4. Kutipan Tipografi Animasi */}
                 <QuoteSection />
 
-                {/* 5. Hover Reveal Card */}
-                <TechFeatures />
+                <div id="fitur">
+                    <TechFeatures />
+                </div>
 
-                {/* 6. Call to Action */}
-                <CTASection />
+                <div id="tentang-kami">
+                    <CTASection />
+                </div>
 
                 <Footer />
             </div>

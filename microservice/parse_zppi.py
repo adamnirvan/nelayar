@@ -146,7 +146,7 @@ def main():
         log(f"[{args.date}] ▶ Mulai: {len(fish_profiles)} profil ikan | "
             f"bbox lat[{args.lat_min}..{args.lat_max}] lon[{args.lon_min}..{args.lon_max}]")
 
-        dtype = np.uint16 if len(fish_profiles) > 8 else np.uint8
+        dtype = np.uint32
         for i, p in enumerate(fish_profiles):
             p['bit'] = 1 << i
 
