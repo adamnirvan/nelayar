@@ -52,10 +52,10 @@ export default function HeroSection() {
                 <motion.div variants={itemVariants} className="mt-8 md:mt-10">
                     <Link
                         href="/register"
-                        className="group relative inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 px-6 py-3 md:px-8 md:py-3.5 text-sm md:text-base font-bold text-white shadow-lg transition-all duration-300 hover:scale-105"
+                        // REVISI: Menggunakan warna, hover, dan shadow super halus persis seperti Navbar, tetapi tetap dengan rounded-xl dan padding proporsional Hero
+                        className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-6 py-3 md:px-8 md:py-3.5 text-sm md:text-base font-bold text-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-300 hover:bg-amber-500 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5"
                     >
                         Bergabung Sekarang
-                        <span aria-hidden className="ml-2 transition-transform duration-300 group-hover:-translate-y-[2px] group-hover:translate-x-1"></span>
                     </Link>
                 </motion.div>
             </motion.div>

@@ -60,7 +60,6 @@ export default function MapHeader({
         setFocused(false);
     }
 
-    // CCTV Pengawas untuk menutup dropdown ketika sidebar ZPPI terbuka
     useEffect(() => {
         if (sidebarOpen) {
             setMenuOpen(false);
@@ -117,46 +116,47 @@ export default function MapHeader({
     return (
         <>
             {/* ========================================================================= */}
-            {/* INTERMUKA DESKTOP (MD-UP): Menggunakan Arsitektur Grid 3-Kolom Mutlak */}
+            {/* INTERMUKA DESKTOP (MD-UP) - DILENGKAPI FONT OUTFIT                       */}
             {/* ========================================================================= */}
-            <div className={`
+            <div 
+                style={{ fontFamily: "'Outfit', sans-serif" }}
+                className={`
                 hidden md:grid pointer-events-none absolute top-5 right-6 left-6 z-[1000]
                 grid-cols-[1fr_auto_1fr] items-center transition-all duration-500 ease-in-out
-                /* Jika sidebar kiri terbuka, geser batas kiri sejauh 400px secara proporsional */
                 ${sidebarOpen ? 'md:left-[400px]' : 'md:left-6'}
             `}>
                 
-                {/* KOLOM KIRI DESKTOP: Tombol Layer */}
+                {/* KOLOM KIRI: Tombol Layer */}
                 <div className="pointer-events-auto justify-self-start relative">
                     <button
                         type="button"
                         onClick={() => { setLayerMenuOpen((v) => !v); setMenuOpen(false); }}
                         className={`glass-panel flex h-[52px] items-center justify-center gap-2 rounded-full px-5 text-gray-700 transition-all hover:text-gray-900 shadow-sm ${layerMenuOpen ? 'ring-2 ring-white/60' : ''}`}
                     >
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                            <polyline points="2 12 12 17 22 12" />
-                            <polyline points="2 17 12 22 22 17" />
+                        {/* Ikon Solid Layer Peta */}
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2.02L2 7.21l10 5.19 10-5.19-10-5.19zM2 11.99l10 5.19 10-5.19-1.39-.72-8.61 4.47-8.61-4.47L2 11.99zm0 4.79l10 5.19 10-5.19-1.39-.72-8.61 4.47-8.61-4.47L2 16.78z"/>
                         </svg>
-                        <span className="text-sm font-semibold">{activeLayerLabel}</span>
+                        <span className="text-sm font-bold">{activeLayerLabel}</span>
                     </button>
 
                     {layerMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-[1000]" onClick={() => setLayerMenuOpen(false)} />
                             <div className="glass-panel absolute left-0 z-[1001] mt-2 w-48 overflow-hidden rounded-xl py-1 shadow-xl">
-                                <div className="px-4 pt-2 pb-1 text-[10px] font-bold tracking-widest text-gray-500 uppercase">Tampilan Peta</div>
+                                <div className="px-4 pt-2 pb-1 text-[10px] font-black tracking-widest text-slate-400 uppercase">Tampilan Peta</div>
                                 {LAYERS.map((layer) => (
                                     <button
                                         key={layer.key}
                                         type="button"
                                         onClick={() => { onLayerChange(layer.key); setLayerMenuOpen(false); }}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/30 ${activeLayer === layer.key ? 'font-bold text-blue-700' : 'text-gray-800'}`}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/50 ${activeLayer === layer.key ? 'font-bold text-blue-700' : 'font-medium text-gray-700'}`}
                                     >
                                         {layer.label}
                                         {activeLayer === layer.key && (
-                                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="20 6 9 17 4 12" />
+                                            /* Ikon Solid Ceklis */
+                                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                             </svg>
                                         )}
                                     </button>
@@ -166,15 +166,20 @@ export default function MapHeader({
                     )}
                 </div>
 
-                {/* KOLOM TENGAH DESKTOP: Search Bar (Terkunci Lebar & Posisi Ditengah) */}
+                {/* KOLOM TENGAH: Search Bar */}
                 <form onSubmit={handleSubmit} className="pointer-events-auto relative w-[400px] justify-self-center">
-                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400">
+                    
+                    {/* ICON KACA PEMBESAR DI UJUNG KIRI (SOLID) */}
+                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-slate-500 z-10 pointer-events-none">
                         {isSearching ? (
-                            <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" /></svg>
+                            <svg className="h-5 w-5 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" /></svg>
                         ) : (
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                            </svg>
                         )}
                     </span>
+                    
                     <input
                         ref={inputRef}
                         type="text"
@@ -183,27 +188,32 @@ export default function MapHeader({
                         onFocus={() => { setFocused(true); setMenuOpen(false); setLayerMenuOpen(false); }}
                         onBlur={() => setTimeout(() => setFocused(false), 150)}
                         placeholder="Cari wilayah atau ikan"
-                        className="glass-panel w-full h-[52px] rounded-full pl-11 pr-10 text-base text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-white/60 focus:outline-none shadow-sm"
+                        // pl-11 memberi ruang untuk ikon kiri
+                        className="glass-panel w-full h-[52px] rounded-full pl-11 pr-10 text-base font-medium text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-white/60 focus:outline-none shadow-sm"
                     />
+                    
                     {query.length > 0 && (
-                        <button type="button" onClick={resetSearch} className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-700">
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                        <button type="button" onClick={resetSearch} className="absolute top-1/2 right-4 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors z-10">
+                            {/* Ikon Solid Silang (X) */}
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </svg>
                         </button>
                     )}
 
                     {showDropdown && (
                         <div className="glass-panel absolute top-full left-0 right-0 z-[1001] mt-2 overflow-hidden rounded-2xl py-1 shadow-xl">
                             {matchedFish.map((fish) => (
-                                <button key={fish.key} type="button" onMouseDown={(e) => { e.preventDefault(); pickFish(fish); }} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/30">
+                                <button key={fish.key} type="button" onMouseDown={(e) => { e.preventDefault(); pickFish(fish); }} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/50 transition-colors">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-white/50 bg-white/40 p-1">
+                                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-white/50 bg-white/60 p-1 shadow-sm">
                                             <img src={fish.image_path ? `/${fish.image_path}` : '/fish/default.png'} alt={fish.nama_lokal} className="max-h-full max-w-full object-contain" />
                                         </span>
                                         <div className="min-w-0">
-                                            <span className="block truncate text-sm font-semibold text-gray-800">
-                                                {fish.nama_lokal} {fish.nama_lain && <span className="font-normal text-gray-500"> / {fish.nama_lain}</span>}
+                                            <span className="block truncate text-sm font-bold text-gray-800">
+                                                {fish.nama_lokal} {fish.nama_lain && <span className="font-medium text-gray-500"> / {fish.nama_lain}</span>}
                                             </span>
-                                            {fish.nama_ilmiah && <span className="block truncate text-xs text-slate-500 italic">{fish.nama_ilmiah}</span>}
+                                            {fish.nama_ilmiah && <span className="block truncate text-xs text-slate-500 italic font-medium">{fish.nama_ilmiah}</span>}
                                         </div>
                                     </div>
                                     {fish.zoneCount !== undefined && (
@@ -214,29 +224,35 @@ export default function MapHeader({
                                 </button>
                             ))}
                             <div className="my-1 border-t border-white/30" />
-                            <button type="button" onMouseDown={(e) => { e.preventDefault(); searchRegion(query.trim()); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-white/30">
-                                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                <span className="text-sm text-gray-800">Cari wilayah &ldquo;{query.trim()}&rdquo;</span>
+                            <button type="button" onMouseDown={(e) => { e.preventDefault(); searchRegion(query.trim()); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-white/50 transition-colors">
+                                {/* Ikon Solid Info/Search */}
+                                <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                                </svg>
+                                <span className="text-sm font-semibold text-gray-800">Cari peta untuk &ldquo;{query.trim()}&rdquo;</span>
                             </button>
                         </div>
                     )}
                 </form>
 
-                {/* KOLOM KANAN DESKTOP: Cek Harga + Akun */}
+                {/* KOLOM KANAN: Cek Harga + Akun */}
                 <div className="pointer-events-auto justify-self-end flex items-center gap-3">
-                    <Link href={pricesView.url()} className="glass-panel flex h-[52px] items-center justify-center rounded-full px-5 text-sm font-semibold text-gray-900 shadow-sm transition-colors hover:bg-white/40">
+                    <Link href={pricesView.url()} className="glass-panel flex h-[52px] items-center justify-center rounded-full px-5 text-sm font-bold text-gray-900 shadow-sm transition-colors hover:bg-white/40">
                         Cek Harga
                     </Link>
                     <div className="relative">
                         <button type="button" onClick={() => { setMenuOpen((v) => !v); setLayerMenuOpen(false); }} className="glass-panel flex h-[52px] w-[52px] items-center justify-center rounded-full text-gray-700 shadow-sm transition-all hover:text-gray-900">
-                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
+                            {/* Ikon Solid Akun */}
+                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                            </svg>
                         </button>
                         {menuOpen && (
                             <>
                                 <div className="fixed inset-0 z-[1000]" onClick={() => setMenuOpen(false)} />
                                 <div className="glass-panel absolute right-0 z-[1001] mt-2 w-48 overflow-hidden rounded-xl py-1 shadow-xl">
-                                    <Link href="/settings/profile" className="block px-4 py-2.5 text-sm text-gray-800 hover:bg-white/30">Pengaturan Profil</Link>
-                                    <button type="button" onClick={handleLogout} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-white/30">Keluar</button>
+                                    <Link href="/settings/profile" className="block px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-white/50">Pengaturan Profil</Link>
+                                    <button type="button" onClick={handleLogout} className="w-full px-4 py-2.5 text-left text-sm font-bold text-red-600 hover:bg-white/50">Keluar</button>
                                 </div>
                             </>
                         )}
@@ -245,22 +261,27 @@ export default function MapHeader({
             </div>
 
             {/* ========================================================================= */}
-            {/* INTERMUKA MOBILE (SMARTPHONE): Menggunakan Struktur Mandiri 2-Baris Flex */}
+            {/* INTERMUKA MOBILE (SMARTPHONE) - DILENGKAPI FONT OUTFIT                    */}
             {/* ========================================================================= */}
-            <div className={`
+            <div 
+                style={{ fontFamily: "'Outfit', sans-serif" }}
+                className={`
                 block md:hidden pointer-events-none absolute top-4 left-4 right-4 z-[1000]
                 flex flex-col gap-3 transition-all duration-500 ease-in-out
-                /* Skenario Khusus Mobile: Jika detail sheet terbuka, sembunyikan seluruh header ke langit-langit */
                 ${sidebarOpen ? '-translate-y-28 opacity-0' : 'translate-y-0 opacity-100'}
             `}>
                 
-                {/* BARIS MOBILE 1: Search Bar Luas + Tombol Akun */}
+                {/* BARIS 1: Search Bar Luas + Tombol Akun */}
                 <div className="flex w-full items-center gap-2">
                     <form onSubmit={handleSubmit} className="pointer-events-auto relative flex-grow">
-                        <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400">
-                            {/* PERBAIKAN: Penambahan strokeLinecap="round" strokeLinejoin="round" pada Kaca Pembesar Mobile */}
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                        
+                        {/* ICON KACA PEMBESAR DI UJUNG KIRI (SOLID) */}
+                        <span className="absolute top-1/2 left-3.5 -translate-y-1/2 text-slate-500 z-10 pointer-events-none">
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                            </svg>
                         </span>
+                        
                         <input
                             type="text"
                             value={query}
@@ -268,25 +289,28 @@ export default function MapHeader({
                             onFocus={() => { setFocused(true); setMenuOpen(false); setLayerMenuOpen(false); }}
                             onBlur={() => setTimeout(() => setFocused(false), 150)}
                             placeholder="Cari wilayah atau ikan"
-                            className="glass-panel w-full h-[48px] rounded-full pl-11 pr-10 text-[13px] text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-white/60 focus:outline-none shadow-sm"
+                            className="glass-panel w-full h-[48px] rounded-full pl-10 pr-10 text-[13px] font-medium text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-white/60 focus:outline-none shadow-sm"
                         />
+                        
                         {query.length > 0 && (
-                            <button type="button" onClick={resetSearch} className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400">
-                                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                            <button type="button" onClick={resetSearch} className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-400 hover:text-slate-700 z-10">
+                                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </svg>
                             </button>
                         )}
 
                         {showDropdown && (
                             <div className="glass-panel absolute top-full left-0 right-0 z-[1001] mt-2 overflow-hidden rounded-2xl py-1 shadow-xl">
                                 {matchedFish.map((fish) => (
-                                    <button key={fish.key} type="button" onMouseDown={(e) => { e.preventDefault(); pickFish(fish); }} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/30">
+                                    <button key={fish.key} type="button" onMouseDown={(e) => { e.preventDefault(); pickFish(fish); }} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/50 transition-colors">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-white/50 bg-white/40 p-1">
+                                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-white/50 bg-white/60 p-1 shadow-sm">
                                                 <img src={fish.image_path ? `/${fish.image_path}` : '/fish/default.png'} alt={fish.nama_lokal} className="max-h-full max-w-full object-contain" />
                                             </span>
                                             <div className="min-w-0">
-                                                <span className="block truncate text-xs font-semibold text-gray-800">{fish.nama_lokal}</span>
-                                                {fish.nama_ilmiah && <span className="block truncate text-[10px] text-slate-500 italic">{fish.nama_ilmiah}</span>}
+                                                <span className="block truncate text-xs font-bold text-gray-800">{fish.nama_lokal}</span>
+                                                {fish.nama_ilmiah && <span className="block truncate text-[10px] text-slate-500 italic font-medium">{fish.nama_ilmiah}</span>}
                                             </div>
                                         </div>
                                         {fish.zoneCount !== undefined && (
@@ -299,48 +323,58 @@ export default function MapHeader({
                                 
                                 {matchedFish.length > 0 && <div className="my-1 border-t border-white/30" />}
                                 
-                                <button type="button" onMouseDown={(e) => { e.preventDefault(); searchRegion(query.trim()); }} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/30">
-                                    <svg className="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                    <span className="text-xs text-gray-800">Cari wilayah &ldquo;{query.trim()}&rdquo;</span>
+                                <button type="button" onMouseDown={(e) => { e.preventDefault(); searchRegion(query.trim()); }} className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-white/50 transition-colors">
+                                    <svg className="h-4 w-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                                    </svg>
+                                    <span className="text-xs font-semibold text-gray-800">Cari peta &ldquo;{query.trim()}&rdquo;</span>
                                 </button>
                             </div>
                         )}
                     </form>
 
                     <div className="pointer-events-auto relative shrink-0">
-                        <button type="button" onClick={() => { setMenuOpen((v) => !v); setLayerMenuOpen(false); }} className="glass-panel flex h-[48px] w-[48px] items-center justify-center rounded-full text-gray-700 shadow-sm">
-                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
+                        <button type="button" onClick={() => { setMenuOpen((v) => !v); setLayerMenuOpen(false); }} className="glass-panel flex h-[48px] w-[48px] items-center justify-center rounded-full text-gray-700 shadow-sm transition-colors hover:text-gray-900">
+                            {/* Ikon Solid Akun */}
+                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                            </svg>
                         </button>
                         {menuOpen && (
                             <div className="glass-panel absolute right-0 z-[1001] mt-2 w-40 overflow-hidden rounded-xl py-1 shadow-xl">
-                                <button type="button" onClick={handleLogout} className="w-full px-4 py-2 text-left text-xs text-red-600 hover:bg-white/30">Keluar</button>
+                                <button type="button" onClick={handleLogout} className="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-white/50 transition-colors">Keluar</button>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* BARIS MOBILE 2: Tombol Layer Kiri + Cek Harga Kanan */}
+                {/* BARIS 2: Tombol Layer Kiri + Cek Harga Kanan */}
                 <div className="flex w-full items-center justify-between">
                     <div className="pointer-events-auto relative">
-                        <button type="button" onClick={() => { setLayerMenuOpen((v) => !v); setMenuOpen(false); }} className="glass-panel flex h-[44px] items-center gap-1.5 rounded-full px-4 text-gray-700 shadow-sm text-xs font-bold">
-                            {/* PERBAIKAN: Penambahan strokeLinecap="round" strokeLinejoin="round" dan <polyline> pada Ikon Layer Mobile */}
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                                <polyline points="2 12 12 17 22 12" />
-                                <polyline points="2 17 12 22 22 17" />
+                        <button type="button" onClick={() => { setLayerMenuOpen((v) => !v); setMenuOpen(false); }} className="glass-panel flex h-[44px] items-center gap-1.5 rounded-full px-4 text-gray-700 shadow-sm text-xs font-bold transition-colors hover:text-gray-900">
+                            {/* Ikon Solid Layer Peta */}
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.02L2 7.21l10 5.19 10-5.19-10-5.19zM2 11.99l10 5.19 10-5.19-1.39-.72-8.61 4.47-8.61-4.47L2 11.99zm0 4.79l10 5.19 10-5.19-1.39-.72-8.61 4.47-8.61-4.47L2 16.78z"/>
                             </svg>
                             {activeLayerLabel}
                         </button>
                         {layerMenuOpen && (
                             <div className="glass-panel absolute left-0 z-[1001] mt-1 w-40 overflow-hidden rounded-xl py-1 shadow-xl">
                                 {LAYERS.map((layer) => (
-                                    <button key={layer.key} type="button" onClick={() => { onLayerChange(layer.key); setLayerMenuOpen(false); }} className="w-full px-4 py-2 text-left text-xs text-gray-800 hover:bg-white/30">{layer.label}</button>
+                                    <button 
+                                        key={layer.key} 
+                                        type="button" 
+                                        onClick={() => { onLayerChange(layer.key); setLayerMenuOpen(false); }} 
+                                        className={`w-full px-4 py-2 text-left text-xs transition-colors hover:bg-white/50 ${activeLayer === layer.key ? 'font-bold text-blue-700' : 'font-medium text-gray-800'}`}
+                                    >
+                                        {layer.label}
+                                    </button>
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    <Link href={pricesView.url()} className="pointer-events-auto glass-panel flex h-[44px] items-center rounded-full px-4 text-xs font-bold text-gray-900 shadow-sm">
+                    <Link href={pricesView.url()} className="pointer-events-auto glass-panel flex h-[44px] items-center rounded-full px-4 text-xs font-bold text-gray-900 shadow-sm transition-colors hover:bg-white/50">
                         Cek Harga
                     </Link>
                 </div>

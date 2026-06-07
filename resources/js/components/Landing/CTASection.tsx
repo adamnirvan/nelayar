@@ -21,31 +21,41 @@ export default function CTASection() {
 
     return (
         <section className="relative w-full bg-[#F3F3F6] py-20 md:py-32 lg:py-48 flex justify-center items-center overflow-hidden">
-            {/* REVISI: Ukuran blur dikecilkan di mobile */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] md:w-[800px] md:h-[800px] bg-amber-400/10 md:bg-amber-400/5 rounded-full blur-[60px] md:blur-[120px] pointer-events-none" />
 
-            <motion.div initial="hidden" whileInView="show" viewport={{ once: false, amount: 0.4 }} className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 text-center flex flex-col items-center">
-                <motion.div variants={iconVariants} className="mb-6 md:mb-8 text-slate-900">
+            {/* Container Utama dipastikan rata tengah secara horizontal dan vertikal */}
+            <motion.div initial="hidden" whileInView="show" viewport={{ once: false, amount: 0.4 }} className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 flex flex-col items-center justify-center text-center">
+                
+                {/* Ikon */}
+                <motion.div variants={iconVariants} className="mb-6 md:mb-8 text-slate-900 flex justify-center">
                     <svg width="48" height="48" className="md:w-[64px] md:h-[64px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10" />
                         <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
                     </svg>
                 </motion.div>
 
-                <motion.h2 variants={typeWriterContainer} className="mb-6 md:mb-8 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight">
+                {/* Headline (Memastikan flex wrap agar kata tidak terpotong asimetris di mobile) */}
+                <motion.h2 variants={typeWriterContainer} className="mb-6 md:mb-8 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight flex flex-wrap justify-center">
                     {renderTypewriterText(headline)}
                 </motion.h2>
 
-                <motion.p variants={fadeUpVariants} className="mb-10 md:mb-12 max-w-[42rem] mx-auto text-sm sm:text-base md:text-lg lg:text-xl font-medium leading-relaxed text-slate-600 px-2">
+                {/* Teks Deskripsi */}
+                <motion.p variants={fadeUpVariants} className="mb-10 md:mb-12 max-w-[42rem] mx-auto text-sm sm:text-base md:text-lg lg:text-xl font-medium leading-relaxed text-slate-600 px-2 text-center">
                     Bergabunglah dengan era baru navigasi maritim. Tinggalkan pelayaran spekulatif, kurangi risiko cuaca ekstrem, dan optimalkan biaya operasional kapal Anda.
                 </motion.p>
 
-                <motion.div variants={fadeUpVariants}>
-                    <Link href="/register" className="group relative inline-flex items-center justify-center rounded-full bg-[#FACC15] px-8 py-3.5 md:px-10 md:py-4 text-base md:text-lg font-bold text-white shadow-lg transition-all duration-300 hover:bg-[#EAB308] hover:scale-105 hover:shadow-[0_0_30px_rgba(250,204,21,0.4)] active:scale-95">
+                {/* Tombol CTA */}
+                <motion.div variants={fadeUpVariants} className="flex justify-center w-full">
+                    <Link 
+                        href="/register" 
+                        // Shadow dipangkas menjadi super halus, warna dikembalikan ke amber-400, dan menggunakan translate ringan alih-alih scale brutal
+                        className="group relative inline-flex items-center justify-center rounded-full bg-amber-400 px-8 py-3.5 md:px-10 md:py-4 text-base md:text-lg font-bold text-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-300 hover:bg-amber-500 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] active:scale-95"
+                    >
                         Bergabung Sekarang
                         <span aria-hidden className="ml-2 inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
                     </Link>
                 </motion.div>
+
             </motion.div>
         </section>
     );

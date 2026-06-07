@@ -14,6 +14,7 @@ export default function MapContainerLeaflet({ children }: MapProps) {
         <LeafletMap
             center={[-2.5, 118]}
             zoom={5}
+            attributionControl={false}
             maxBounds={indonesiaBounds}
             maxBoundsViscosity={1.0}
             zoomControl={false} // Default top-left bertabrakan dengan header; dipindah ke bawah-kanan

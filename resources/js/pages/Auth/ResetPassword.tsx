@@ -60,7 +60,7 @@ export default function ResetPassword() {
                             Reset Kata Sandi
                         </h2>
                         <p className="mt-3 text-sm leading-relaxed text-gray-500">
-                            Silakan buat kata sandi baru untuk akun Anda. Pastikan kata sandi kuat dan mudah diingat.
+                            Silahkan buat kata sandi baru untuk akun Anda. Pastikan kata sandi kuat dan mudah diingat.
                         </p>
                     </div>
 
@@ -149,7 +149,7 @@ export default function ResetPassword() {
                             className={`
                                 group mt-2 flex w-full items-center justify-center rounded-xl py-3.5
                                 text-sm font-bold text-white shadow-md
-                                bg-gradient-to-r from-amber-400 to-orange-500
+                                bg-amber-400
                                 transition-all duration-300 hover:scale-[1.02]
                                 hover:shadow-[0_0_20px] hover:shadow-amber-500/60
                                 disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none
@@ -160,7 +160,7 @@ export default function ResetPassword() {
                     </form>
 
                     <p className="mt-6 text-center text-sm text-gray-500">
-                        <Link href="/login" className="font-bold text-amber-500 transition hover:text-amber-600 hover:underline">
+                        <Link href="/login" className="font-bold text-amber-400 hover:underline">
                             Kembali ke Login
                         </Link>
                     </p>

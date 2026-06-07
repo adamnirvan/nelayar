@@ -16,7 +16,8 @@ class DatabaseSeeder extends Seeder
 
         
         $this->call([
-            FishProfileSeeder::class, 
+            FishProfileSeeder::class,
+            LandBoundarySeeder::class, 
         ]);
     }
 }

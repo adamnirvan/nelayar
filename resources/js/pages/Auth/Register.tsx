@@ -210,7 +210,7 @@ export default function Register() {
                             className={`
                                 mt-4 flex w-full items-center justify-center py-3.5
                                 text-sm font-bold text-white rounded-xl shadow-md
-                                bg-linear-to-r from-yellow-400 to-amber-500
+                                bg-amber-400
                                 transition-all duration-300 hover:scale-[1.02] 
                                 hover:shadow-[0_0_10px] hover:shadow-amber-500/60
                                 disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none
@@ -221,7 +221,7 @@ export default function Register() {
 
                         <p className="mt-8 text-center text-sm text-gray-500">
                             Sudah punya akun?{' '}
-                            <Link href="/login" className="font-bold text-amber-500 transition hover:text-amber-600 hover:underline">
+                            <Link href="/login" className="font-bold text-amber-400 transition hover:text-amber-500 hover:underline">
                                 Login di sini
                             </Link>
                         </p>

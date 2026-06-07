@@ -13,20 +13,44 @@ import { findPointsWithinExpandingRadius } from '@/lib/geo';
 import { useNavigation } from './NavigationContext';
 import ZoneDetailSidebar from './ZoneDetailSidebar';
 
-// Ikon dibuat sekali lalu dipakai ulang oleh seluruh marker (hemat alokasi).
+// IKON NORMAL (Berdenyut Bergantian)
 const pulsingIcon = L.divIcon({
-    className: 'pulsing-marker-wrapper',
-    html: '<div class="pulsing-marker"></div>',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    className: 'bg-transparent border-none',
+    html: `
+        <div class="relative flex items-center justify-center w-8 h-8">
+            <span class="absolute w-full h-full bg-yellow-400 rounded-full staggered-ping opacity-60"></span>
+            
+            <div class="relative flex items-center justify-center w-8 h-8 bg-yellow-400 rounded-full border-[2.5px] border-white shadow-md z-10 transition-transform hover:scale-110">
+                <svg class="w-4 h-4 text-yellow-900" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.4 3.6v11.52A3.36 3.36 0 0 1 11.04 18.48H9.6a3.36 3.36 0 0 1-3.36-3.36V12.72" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.4 7.44h4.32" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.8 9.84l2.4-2.4-2.4-2.4" />
+                </svg>
+            </div>
+        </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
 });
 
-// Ikon untuk zona yang berada di dalam radius pencarian pengguna (emas berdenyut).
+// IKON NEARBY / RADIUS (Berdenyut Breathing Scale untuk Zona Terdekat)
 const nearbyIcon = L.divIcon({
-    className: 'nearby-marker-wrapper',
-    html: '<div class="nearby-marker"></div>',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    className: 'bg-transparent border-none',
+    html: `
+        <div class="relative flex items-center justify-center w-10 h-10">
+            <span class="absolute w-full h-full bg-yellow-400 rounded-full staggered-ping opacity-60"></span>
+            
+            <div class="nearby-breathing-scale relative flex items-center justify-center w-8 h-8 bg-yellow-500 rounded-full border-[2.5px] border-white z-10 text-white">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.4 3.6v11.52A3.36 3.36 0 0 1 11.04 18.48H9.6a3.36 3.36 0 0 1-3.36-3.36V12.72" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.4 7.44h4.32" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.8 9.84l2.4-2.4-2.4-2.4" />
+                </svg>
+            </div>
+        </div>
+    `,
+    iconSize: [40, 40], // Diperbesar sedikit dari marker normal agar punya ruang bernapas
+    iconAnchor: [20, 20],
 });
 
 interface ZoneWithCenter {
@@ -72,8 +96,12 @@ function ClusteredZoneMarkers({
                 const size = count < 10 ? 36 : count < 100 ? 44 : 52;
 
                 return L.divIcon({
-                    html: `<div class="zppi-cluster"><span>${count}</span></div>`,
-                    className: 'zppi-cluster-wrapper',
+                    className: 'bg-transparent border-none',
+                    html: `
+                        <div style="font-family: 'Outfit', sans-serif;" class="flex items-center justify-center w-full h-full bg-yellow-400 text-yellow-900 text-sm font-bold rounded-full border-[3px] border-white shadow-[0_5px_15px_rgba(250,204,21,0.4)]">
+                            ${count}
+                        </div>
+                    `,
                     iconSize: [size, size],
                 });
             },
@@ -351,7 +379,7 @@ export default function ZppiLayerLeaflet({
 
     return (
         <>
-            {/* FITUR TEMAN: Lingkaran radius pencarian di sekitar pengguna (kunjungan pertama) */}
+            {/* 1. LINGKARAN RADIUS PENCARIAN (Abu-abu Slate agar tidak mencolok) */}
             {!selectedZone &&
                 userPosition &&
                 nearby &&
@@ -360,16 +388,16 @@ export default function ZppiLayerLeaflet({
                         center={[userPosition.lat, userPosition.lng]}
                         radius={nearby.radiusKm * 1000}
                         pathOptions={{
-                            color: '#d97706', // Amber
+                            color: '#94a3b8', // Tailwind slate-400
                             weight: 1.5,
-                            fillColor: '#f59e0b',
-                            fillOpacity: 0.06,
-                            dashArray: '6 6',
+                            fillColor: '#cbd5e1', // Tailwind slate-300
+                            fillOpacity: 0.05,
+                            dashArray: '4 8', // Jarak dash lebih renggang dan rapi
                         }}
                     />
                 )}
 
-            {/* GABUNGAN: Marker zona (clustered) — disembunyikan saat satu zona dipilih */}
+            {/* GABUNGAN: Marker zona (clustered) */}
             <ClusteredZoneMarkers
                 zones={visibleZones}
                 nearbySet={nearbySet}
@@ -377,32 +405,40 @@ export default function ZppiLayerLeaflet({
                 onZoneClick={handleZoneClick}
             />
 
-            {/* Outline poligon zona terpilih (diambil lazy) */}
+            {/* POLIGON ZONA TERPILIH (Sama persis dengan marker ikan) */}
             {selectedGeometry && (
                 <GeoJSON
                     key={`selected-${selectedGeometry.properties?.id}`}
                     data={selectedGeometry}
                     style={{
-                        fillColor: '#3b82f6',
-                        color: '#1e3a8a',
-                        weight: 2,
+                        // Sama persis dengan warna bg-yellow-400 di marker ikan
+                        fillColor: '#facc15', 
+                        
+                        // Garis tepi disamakan 100% agar berkesan "Flat & Minimalist"
+                        color: '#facc15',     
+                        
+                        // Ketebalan dibuat pas (tidak terlalu tebal/tipis)
+                        weight: 2,            
                         opacity: 1,
-                        fillOpacity: 0.4,
+                        
+                        // Opacity ditahan di 45% agar kuningnya tetap menyala (tidak jadi hijau)
+                        fillOpacity: 0.45,    
                     }}
                 />
             )}
 
-            {/* FITUR MU: GARIS RUTE NAVIGASI PUTUS-PUTUS */}
+            {/* 3. GARIS RUTE NAVIGASI (Biru Sama Dengan User Marker) */}
             {nav.routeGeoJson && (
                 <GeoJSON
                     key={`route-${nav.status}-${Date.now()}`}
                     data={nav.routeGeoJson}
                     style={{
-                        color: '#0284c7',
-                        weight: 4,
-                        dashArray: '8, 8',
+                        color: '#3b82f6', // Biru terang Tailwind blue-500
+                        weight: 5,        // Ditebalkan agar sangat kontras
+                        dashArray: '10, 10',
                         lineCap: 'round',
                         lineJoin: 'round',
+                        opacity: 0.9,
                     }}
                 />
             )}
