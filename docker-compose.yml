@@ -1,0 +1,143 @@
+services:
+  # -------------------------------------------------------------------
+  # PostgreSQL + PostGIS
+  # -------------------------------------------------------------------
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-nelayar_gis}
+      POSTGRES_USER: ${DB_USERNAME:-nelayar}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-nelayar} -d ${DB_DATABASE:-nelayar_gis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # Redis (cache + Laravel queue/cache store)
+  # -------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # PHP-FPM application (Laravel + Python microservices)
+  # Runs migrations + cache warm-up on start (RUN_MIGRATIONS=true).
+  # -------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      target: app
+    image: nelayar-gis-app
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      RUN_MIGRATIONS: "true"
+    volumes:
+      - public-storage:/var/www/html/storage/app/public
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------
+  # Nginx — serves static assets, proxies PHP to the app service
+  # -------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      target: web
+    image: nelayar-gis-web
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - public-storage:/var/www/html/storage/app/public:ro
+    depends_on:
+      - app
+
+  # -------------------------------------------------------------------
+  # Queue worker (database queue connection)
+  # -------------------------------------------------------------------
+  queue:
+    image: nelayar-gis-app
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=0", "--sleep=3"]
+    volumes:
+      - public-storage:/var/www/html/storage/app/public
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------
+  # Scheduler (ocean:sync-forecast daily, nelayar:scrape-kkp weekly)
+  # -------------------------------------------------------------------
+  scheduler:
+    image: nelayar-gis-app
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - public-storage:/var/www/html/storage/app/public
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------
+  # One-shot bootstrap: seed fish_profiles, build the 10-day map window,
+  # and do the first fish-price scrape. Gated behind the "init" profile
+  # so it never runs on a normal `up`. Run it once after first deploy:
+  #
+  #   docker compose --env-file .env.docker --profile init run --rm init
+  # -------------------------------------------------------------------
+  init:
+    image: nelayar-gis-app
+    profiles: ["init"]
+    restart: "no"
+    env_file:
+      - .env.docker
+    command:
+      - sh
+      - -c
+      - |
+        php artisan migrate --force \
+        && php artisan db:seed --force \
+        && php artisan ocean:sync-forecast \
+        && php artisan nelayar:scrape-kkp
+    volumes:
+      - public-storage:/var/www/html/storage/app/public
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  redis-data:
+  public-storage:
