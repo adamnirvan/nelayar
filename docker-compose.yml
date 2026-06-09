@@ -131,7 +131,6 @@ services:
       - |
         php artisan migrate --force \
         && php artisan db:seed --force \
-        && php artisan ocean:sync-forecast \
         && php artisan nelayar:scrape-kkp
     volumes:
       - public-storage:/var/www/html/storage/app/public
