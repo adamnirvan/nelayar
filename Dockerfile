@@ -59,6 +59,10 @@ RUN cp .env.example .env \
 FROM php:8.4-fpm-bookworm AS app
 
 # --- System packages: build deps for PHP extensions + Python runtime ---
+# NOTE: no GDAL (libgdal-dev/gdal-bin). The only Python that runs in this
+# container is route_sea.py (searoute) and scrape_kkp.py (requests). The
+# GDAL-dependent compute (parse_zppi.py: rasterio/numpy/etc.) runs on GitHub
+# Actions and is fed back via `ocean:ingest`, which is pure PHP/PostGIS.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq-dev \
         libzip-dev \
@@ -66,10 +70,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libpng-dev \
         libjpeg-dev \
         libfreetype6-dev \
-        libgdal-dev \
         zip unzip git \
-        python3 python3-venv python3-dev python3-pip \
-        gdal-bin \
+        python3 python3-venv python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # --- PHP extensions ---
@@ -104,18 +106,16 @@ COPY --from=assets /app/public ./public
 # --- Python microservice venv at the path PYTHON_PATH expects ---
 # OceanService / FishPriceService / RouteService all resolve
 # `microservice/.venv/bin/python` correctly (relative to project root).
+# Runtime only runs route_sea.py (searoute -> geojson + networkx) and
+# scrape_kkp.py (requests). The heavy ZPPI stack (numpy/scipy/matplotlib/
+# rasterio/copernicusmarine) is deliberately NOT installed here — that compute
+# runs on GitHub Actions, not on this box. Installing it would re-introduce the
+# build's RAM/time blowup for code this container never executes.
 RUN python3 -m venv microservice/.venv \
     && microservice/.venv/bin/pip install --no-cache-dir --upgrade pip \
     && microservice/.venv/bin/pip install --no-cache-dir \
-        numpy \
-        scipy \
-        matplotlib \
-        shapely \
-        rasterio \
         searoute \
-        copernicusmarine \
-        requests \
-        beautifulsoup4
+        requests
 
 # --- Ensure Laravel's writable dirs exist, then fix permissions ---
 RUN mkdir -p \
