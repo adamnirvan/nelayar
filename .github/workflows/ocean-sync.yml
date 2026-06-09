@@ -1,0 +1,98 @@
+name: ocean-sync
+
+# Menghitung ZPPI (CMEMS + numpy/scipy/matplotlib) DI LUAR server produksi.
+# Runner GitHub (4 vCPU / 16 GB) menjalankan parse_zppi.py untuk H+0..H+9,
+# lalu me-rsync hasilnya ke server dan memicu `php artisan ocean:ingest` via
+# SSH. Server hanya melakukan INSERT PostGIS yang ringan — tidak ada Python.
+#
+# Secrets yang dibutuhkan (Settings → Secrets and variables → Actions):
+#   SSH_HOST          host/IP server produksi
+#   SSH_USER          user SSH (mis. deployer)
+#   SSH_KEY           private key SSH (PEM/OpenSSH) untuk user di atas
+#   SSH_PORT          (opsional) port SSH, default 22
+#   SERVER_PATH       path absolut root project di server (mis. /var/www/nelayar-gis)
+#   CMEMS_USERNAME    kredensial marine.copernicus.eu
+#   CMEMS_PASSWORD
+
+on:
+  schedule:
+    # 19:00 UTC = 02:00 WIB (Asia/Jakarta) — samakan dengan jadwal lama server
+    - cron: '0 19 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: ocean-sync
+  cancel-in-progress: false
+
+jobs:
+  compute-and-ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      MPLBACKEND: Agg
+      CMEMS_USERNAME: ${{ secrets.CMEMS_USERNAME }}
+      CMEMS_PASSWORD: ${{ secrets.CMEMS_PASSWORD }}
+      COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.CMEMS_USERNAME }}
+      COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.CMEMS_PASSWORD }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SERVER_PATH: ${{ secrets.SERVER_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv + Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python deps (uv sync)
+        run: uv sync --frozen
+        working-directory: microservice
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<EOF
+          Host prod
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+          EOF
+
+      - name: Pull fish_profiles from server (source of truth)
+        run: |
+          ssh prod "cd '$SERVER_PATH' && php artisan ocean:export-profiles" > profiles.json
+          # Validasi JSON sebelum dipakai
+          python3 -c "import json,sys; json.load(open('profiles.json'))"
+          echo "Profil ikan terambil: $(wc -c < profiles.json) bytes"
+
+      - name: Compute ZPPI H+0..H+9
+        run: |
+          mkdir -p out storage/app/public/grids
+          PROFILES="$(cat profiles.json)"
+          for i in $(seq 0 9); do
+            d="$(TZ=Asia/Jakarta date -d "+$i day" +%F)"
+            echo "::group::compute $d"
+            # stdout = JSON hasil; stderr = log diagnostik. PNG ditulis ke
+            # storage/app/public/grids/$d relatif terhadap CWD (= root repo).
+            if uv run --project microservice python microservice/parse_zppi.py \
+                 --date "$d" --fish-profiles "$PROFILES" > "out/$d.json"; then
+              echo "✓ $d selesai ($(wc -c < "out/$d.json") bytes)"
+            else
+              echo "✗ $d gagal — file out/$d.json mungkin tidak lengkap"
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Rsync results to server
+        run: |
+          ssh prod "mkdir -p '$SERVER_PATH/storage/app/ocean-ingest' '$SERVER_PATH/storage/app/public/grids'"
+          rsync -az out/ prod:"$SERVER_PATH/storage/app/ocean-ingest/"
+          rsync -az storage/app/public/grids/ prod:"$SERVER_PATH/storage/app/public/grids/"
+
+      - name: Trigger ingest on server
+        run: ssh prod "cd '$SERVER_PATH' && php artisan ocean:ingest"

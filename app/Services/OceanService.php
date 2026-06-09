@@ -20,10 +20,19 @@ class OceanService
      */
     public function fetchAndStore(string $date, ?callable $onProgress = null): int
     {
-        $pythonPath = base_path(env('PYTHON_PATH', 'python3'));
-        $scriptPath = base_path('microservice/parse_zppi.py');
+        $data = $this->computeFeatures($date, $onProgress);
 
-        $fishProfiles = DB::table('fish_profiles')
+        return $this->storeFeatures($date, $data);
+    }
+
+    /**
+     * Profil ikan (envelope SST/Chl) yang dikirim ke parse_zppi.py.
+     * Diekstrak agar bisa dipakai ulang oleh perintah ocean:export-profiles
+     * (worker CI mengambil profil ini via SSH lalu menghitung di luar server).
+     */
+    public function fishProfilesPayload(): array
+    {
+        return DB::table('fish_profiles')
             ->orderBy('id')
             ->get([
                 'nama_lokal',
@@ -36,7 +45,25 @@ class OceanService
                 'image_path',
             ])
             ->toArray();
-        $fishJson = escapeshellarg(json_encode($fishProfiles));
+    }
+
+    /**
+     * Jalankan parse_zppi.py untuk $date dan kembalikan payload terdekode
+     * (geojson + path raster + confidence). Bagian BERAT (download CMEMS,
+     * numpy/scipy/matplotlib). Dipisah dari storeFeatures() agar mesin ringan
+     * (server produksi) bisa hanya menjalankan ingest, sementara komputasi
+     * dijalankan di GitHub Actions. Lihat .github/workflows/ocean-sync.yml.
+     *
+     * @return array{geojson: array, sst_file_path: ?string, chl_file_path: ?string, confidence: float}
+     *
+     * @throws \RuntimeException
+     */
+    public function computeFeatures(string $date, ?callable $onProgress = null): array
+    {
+        $pythonPath = base_path(env('PYTHON_PATH', 'python3'));
+        $scriptPath = base_path('microservice/parse_zppi.py');
+
+        $fishJson = escapeshellarg(json_encode($this->fishProfilesPayload()));
 
         $result = Process::forever()->run(
             "{$pythonPath} {$scriptPath} --date {$date} --fish-profiles {$fishJson}",
@@ -66,6 +93,23 @@ class OceanService
             throw new \RuntimeException("Parser Python error untuk {$date}: {$msg}");
         }
 
+        return $data;
+    }
+
+    /**
+     * Simpan payload hasil parse_zppi.py (geojson + path raster) ke
+     * ocean_data + zppi_zones. Bagian RINGAN: hanya INSERT PostGIS dengan
+     * clipping daratan (ST_Difference) — tanpa Python. Dipanggil oleh
+     * fetchAndStore() (mesin penuh) maupun ocean:ingest (server produksi yang
+     * menerima hasil komputasi dari CI).
+     *
+     * @param  array{geojson?: array, sst_file_path?: ?string, chl_file_path?: ?string, confidence?: float}  $data
+     * @return int Jumlah zona tersimpan.
+     *
+     * @throws \RuntimeException
+     */
+    public function storeFeatures(string $date, array $data): int
+    {
         DB::beginTransaction();
         try {
             $oceanData = OceanData::updateOrCreate(
@@ -119,7 +163,7 @@ class OceanService
                     $props['chl_rata'] ?? null,
                     $data['confidence'] ?? 1.0,
                     $rawGeom, // Placeholder ke-7: Untuk target yang mau dipotong
-                    $rawGeom  // Placeholder ke-8: Untuk mencari pulau yang tertabrak
+                    $rawGeom,  // Placeholder ke-8: Untuk mencari pulau yang tertabrak
                 ]);
                 $inserted++;
             }
