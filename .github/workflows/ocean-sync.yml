@@ -2,15 +2,21 @@ name: ocean-sync
 
 # Menghitung ZPPI (CMEMS + numpy/scipy/matplotlib) DI LUAR server produksi.
 # Runner GitHub (4 vCPU / 16 GB) menjalankan parse_zppi.py untuk H+0..H+9,
-# lalu me-rsync hasilnya ke server dan memicu `php artisan ocean:ingest` via
-# SSH. Server hanya melakukan INSERT PostGIS yang ringan — tidak ada Python.
+# me-rsync hasilnya ke server, lalu menyalinnya ke dalam container `app` dan
+# memicu `ocean:ingest`. Server hanya melakukan INSERT PostGIS yang ringan.
+#
+# CATATAN: alur ini menargetkan deployment Docker Compose. Semua perintah
+# artisan dijalankan via `docker compose exec app …` (php tidak terpasang di
+# host). Untuk server bare-metal, ganti `docker compose … exec -T app php artisan`
+# menjadi `php artisan` dan rsync langsung ke `storage/app/...`.
 #
 # Secrets yang dibutuhkan (Settings → Secrets and variables → Actions):
 #   SSH_HOST          host/IP server produksi
 #   SSH_USER          user SSH (mis. deployer)
 #   SSH_KEY           private key SSH (PEM/OpenSSH) untuk user di atas
 #   SSH_PORT          (opsional) port SSH, default 22
-#   SERVER_PATH       path absolut root project di server (mis. /var/www/nelayar-gis)
+#   SERVER_PATH       path absolut HOST yang berisi docker-compose.yml + .env.docker
+#                     (mis. /home/deploy/nelayar-gis) — BUKAN path di dalam container
 #   CMEMS_USERNAME    kredensial marine.copernicus.eu
 #   CMEMS_PASSWORD
 
@@ -65,7 +71,10 @@ jobs:
 
       - name: Pull fish_profiles from server (source of truth)
         run: |
-          ssh prod "cd '$SERVER_PATH' && php artisan ocean:export-profiles" > profiles.json
+          # Server berjalan via Docker Compose: php/artisan ada DI DALAM container
+          # `app`, bukan di host. Maka semua artisan dijalankan lewat
+          # `docker compose exec`. -T mematikan alokasi TTY (wajib di SSH/CI).
+          ssh prod "cd '$SERVER_PATH' && docker compose --env-file .env.docker exec -T app php artisan ocean:export-profiles" > profiles.json
           # Validasi JSON sebelum dipakai
           python3 -c "import json,sys; json.load(open('profiles.json'))"
           echo "Profil ikan terambil: $(wc -c < profiles.json) bytes"
@@ -88,11 +97,21 @@ jobs:
             echo "::endgroup::"
           done
 
-      - name: Rsync results to server
+      - name: Rsync results to host staging dirs
         run: |
-          ssh prod "mkdir -p '$SERVER_PATH/storage/app/ocean-ingest' '$SERVER_PATH/storage/app/public/grids'"
-          rsync -az out/ prod:"$SERVER_PATH/storage/app/ocean-ingest/"
-          rsync -az storage/app/public/grids/ prod:"$SERVER_PATH/storage/app/public/grids/"
+          # Hasil di-rsync ke direktori staging di HOST dulu (bukan langsung ke
+          # volume), karena storage app berada di dalam volume container.
+          ssh prod "mkdir -p '$SERVER_PATH/ocean/out' '$SERVER_PATH/ocean/grids'"
+          rsync -az --delete out/ prod:"$SERVER_PATH/ocean/out/"
+          rsync -az --delete storage/app/public/grids/ prod:"$SERVER_PATH/ocean/grids/"
 
-      - name: Trigger ingest on server
-        run: ssh prod "cd '$SERVER_PATH' && php artisan ocean:ingest"
+      - name: Copy into container + trigger ingest
+        run: |
+          ssh prod "cd '$SERVER_PATH' && \
+            docker compose --env-file .env.docker exec -T app mkdir -p \
+              /var/www/html/storage/app/ocean-ingest \
+              /var/www/html/storage/app/public/grids && \
+            docker compose --env-file .env.docker cp ocean/grids/. app:/var/www/html/storage/app/public/grids/ && \
+            docker compose --env-file .env.docker cp ocean/out/.   app:/var/www/html/storage/app/ocean-ingest/ && \
+            docker compose --env-file .env.docker exec -T app php artisan ocean:ingest && \
+            rm -rf ocean/out ocean/grids"
