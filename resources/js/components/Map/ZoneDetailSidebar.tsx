@@ -178,7 +178,7 @@ export default function ZoneDetailSidebar({
 
             <div
                 // DIUBAH: Membunuh scrollbar secara total di semua browser (Chrome, Safari, Firefox)
-                className="flex-grow overflow-y-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+                className="flex-grow overflow-y-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onPointerDown={(e) => {
                     if (isMobile && isExpanded) e.stopPropagation();
                 }}
@@ -310,7 +310,7 @@ export default function ZoneDetailSidebar({
                     
                     {/* Container Scroll Horizontal dengan hilangnya scrollbar bawaan */}
                     {/* Container Scroll Horizontal dengan hilangnya scrollbar bawaan */}
-                    <div className="flex gap-3 overflow-x-auto pb-4 pt-1 px-1 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+                    <div className="flex gap-3 overflow-x-auto pb-4 pt-1 px-1 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {props?.ikan_cocok?.map((ikan: any, idx: number) => {
                             // 1. DEKLARASI SEMUA VARIABEL DI SINI (SEBELUM RETURN)
                             const imgPath = ikan.image_path 
