@@ -10,7 +10,7 @@ import Footer from '../components/Landing/Footer';
 export default function Landing() {
     return (
         <>
-            <Head title="Nelayar - Navigasi Masa Depan Perikanan" />
+            <Head title="Navigasi Masa Depan Perikanan" />
             
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
