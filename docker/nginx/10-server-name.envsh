@@ -1,0 +1,20 @@
+#!/bin/sh
+# Sourced by the nginx image entrypoint (note the .envsh extension) BEFORE the
+# 20-envsubst-on-templates.sh step, so the exported SERVER_NAME is available
+# when the default.conf.template is rendered.
+#
+# Derives the nginx server_name from APP_URL by stripping the scheme, any path,
+# and any :port. The apex domain and its www. variant are both served, so the
+# site answers on either. Falls back to "localhost" if APP_URL is unset.
+#   APP_URL=https://nelayar.example.com      -> SERVER_NAME="nelayar.example.com www.nelayar.example.com"
+#   APP_URL=https://www.nelayar.example.com  -> SERVER_NAME="nelayar.example.com www.nelayar.example.com"
+#   APP_URL=http://localhost                 -> SERVER_NAME="localhost www.localhost"
+
+host="${APP_URL#*://}"   # strip scheme (http:// or https://)
+host="${host%%/*}"       # strip any path
+host="${host%%:*}"       # strip any :port
+host="${host:-localhost}"
+host="${host#www.}"      # normalize to the apex (drop a leading www.)
+
+export SERVER_NAME="${host} www.${host}"
+echo "nginx: server_name='${SERVER_NAME}' (from APP_URL='${APP_URL:-unset}')"

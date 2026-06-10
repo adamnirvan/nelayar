@@ -141,6 +141,13 @@ CMD ["php-fpm"]
 # ---------------------------------------------------------------------
 FROM nginx:1.27-alpine AS web
 
-COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+# Domain-only access: the vhost is rendered at container start from a template
+# (envsubst). server_name comes from APP_URL via 10-server-name.envsh; any
+# Host that doesn't match (incl. raw-IP access) hits a default server that
+# returns 444. NGINX_ENVSUBST_FILTER limits substitution to SERVER_NAME so
+# nginx's own $uri/$query_string are not clobbered.
+ENV NGINX_ENVSUBST_FILTER=^SERVER_NAME$
+COPY docker/nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/nginx/10-server-name.envsh /docker-entrypoint.d/10-server-name.envsh
 # Public dir (incl. built assets) so nginx can serve static files directly.
 COPY --from=app /var/www/html/public /var/www/html/public

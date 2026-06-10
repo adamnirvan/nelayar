@@ -1,6 +1,22 @@
+# Rendered at container start from this template by the nginx image's
+# envsubst step. Only ${SERVER_NAME} is substituted (NGINX_ENVSUBST_FILTER),
+# so nginx's own $uri / $query_string / etc. are left untouched.
+# ${SERVER_NAME} is derived from APP_URL by docker/nginx/10-server-name.envsh.
+
+# Catch-all: anything whose Host header does not match our domain — including
+# direct access by raw IP — hits this default server and gets the connection
+# dropped (444, nginx closes without a response). This is what keeps the site
+# reachable only by domain name, not by IP.
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+
+# The real site: only served when the request's Host matches our domain.
 server {
     listen 80;
-    server_name _;
+    server_name ${SERVER_NAME};
 
     root /var/www/html/public;
     index index.php;

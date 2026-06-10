@@ -63,6 +63,10 @@ services:
       target: web
     image: nelayar-gis-web
     restart: unless-stopped
+    # APP_URL drives nginx's server_name so the site is reachable only by
+    # domain name, not by raw IP (see docker/nginx/default.conf.template).
+    env_file:
+      - .env.docker
     ports:
       - "${HTTP_PORT:-80}:80"
     volumes:

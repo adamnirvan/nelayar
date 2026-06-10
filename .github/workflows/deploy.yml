@@ -1,0 +1,106 @@
+name: deploy
+
+# Membangun image Docker DI RUNNER GitHub (4 vCPU / 16 GB), lalu mengirim hasil
+# build ke server lewat SSH dan menjalankannya. Server TIDAK membangun apa pun —
+# ia hanya `docker load` image jadi lalu `docker compose up -d`. Cocok untuk VPS
+# hemat: build (composer + npm + ekstensi PHP) berat di RAM/CPU, jadi dikerjakan
+# di CI; server cukup menarik image siap pakai.
+#
+# Alur:
+#   1. buildx build target `app` dan `web` (lihat Dockerfile) -> tag :latest
+#   2. docker save kedua image -> gzip -> satu tarball
+#   3. scp tarball ke $SERVER_PATH
+#   4. ssh: docker load, lalu `docker compose up -d`
+#
+# Data AMAN: hanya service app/web/queue/scheduler yang image-nya berubah yang
+# di-recreate. Service `db` (volume db-data) dan `redis` tidak tersentuh karena
+# image-nya tidak berubah. Migrasi dijalankan otomatis oleh entrypoint app
+# (RUN_MIGRATIONS=true) — `migrate`, BUKAN `migrate:fresh`, jadi tidak menghapus.
+#
+# Secrets yang dibutuhkan (sama persis dengan ocean-sync.yml — sudah ada):
+#   SSH_HOST      host/IP server produksi
+#   SSH_USER      user SSH (mis. deployer)
+#   SSH_KEY       private key SSH (PEM/OpenSSH) untuk user di atas
+#   SSH_PORT      (opsional) port SSH, default 22
+#   SERVER_PATH   path absolut HOST yang berisi docker-compose.yml + .env.docker
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+# Cegah dua deploy berjalan bersamaan; jangan batalkan deploy yang sedang jalan.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SERVER_PATH: ${{ secrets.SERVER_PATH }}
+      APP_IMAGE: nelayar-gis-app:latest
+      WEB_IMAGE: nelayar-gis-web:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build target `app` lebih dulu; stage "vendor"/"assets" yang mahal
+      # tersimpan di cache gha dan dipakai ulang saat membangun `web`
+      # (web COPY --from=app), jadi tidak ada kerja ganda.
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          tags: ${{ env.APP_IMAGE }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          tags: ${{ env.WEB_IMAGE }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Satu tarball untuk kedua image. gzip menekan ukuran transfer SSH.
+      - name: Save images to tarball
+        run: docker save "$APP_IMAGE" "$WEB_IMAGE" | gzip > images.tar.gz
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<EOF
+          Host prod
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+          EOF
+
+      - name: Upload image tarball to server
+        run: scp images.tar.gz prod:"$SERVER_PATH/images.tar.gz"
+
+      # Muat image, recreate container yang image-nya berubah, lalu bersihkan.
+      # `up -d` TIDAK membangun apa pun: image sudah ada (hasil load) sehingga
+      # compose memakainya langsung meski service punya blok build:.
+      - name: Load images and restart on server
+        run: |
+          ssh prod "cd '$SERVER_PATH' && \
+            gunzip -c images.tar.gz | docker load && \
+            docker compose --env-file .env.docker up -d && \
+            rm -f images.tar.gz && \
+            docker image prune -f"
