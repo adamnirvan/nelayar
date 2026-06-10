@@ -164,7 +164,7 @@ export default function Login() {
                 <div
                     className="relative hidden w-full flex-col justify-between overflow-hidden p-12 lg:flex lg:w-[65%]"
                     style={{
-                        backgroundImage: 'url(/vessel_2.jpg)',
+                        backgroundImage: 'url(/vessel_2.webp)',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                     }}

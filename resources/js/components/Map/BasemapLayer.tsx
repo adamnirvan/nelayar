@@ -12,12 +12,34 @@ import { TileLayer, useMap } from 'react-leaflet';
 // file utuh ter-cache — respons parsial akan meracuni cache & memecah pmtiles.
 const PMTILES_URL = '/tiles/id.pmtiles';
 
-// Ditandai setelah file utuh berhasil di-cache. Versi dinaikkan agar cache
-// lama yang mungkin berisi potongan parsial (dari percobaan terdahulu) diabaikan
-// dan di-warm ulang dari awal.
-const WARMED_KEY = 'pmtiles_warmed_v2';
+// Nama cache service worker tempat arsip PMTiles utuh disimpan (lihat
+// runtimeCaching `basemap-pmtiles` di vite.config.ts). Kesiapan offline
+// ditentukan dari isi cache ini (isBasemapCached), bukan flag localStorage,
+// agar selaras dengan lib/offline/sync.ts dan tidak melenceng antar jalur warm.
+const BASEMAP_CACHE = 'basemap-pmtiles';
 
 type Mode = 'pmtiles' | 'carto' | null;
+
+/**
+ * Sumber kebenaran kesiapan offline: apakah arsip PMTiles UTUH benar-benar ada
+ * di cache SW. Status 200 memastikan ini file penuh, bukan potongan 206 parsial
+ * (yang merusak pmtiles) sisa percobaan lama. Tahan terhadap flag localStorage
+ * yang bisa melenceng antara jalur warm sync.ts vs komponen ini.
+ */
+async function isBasemapCached(): Promise<boolean> {
+    if (typeof caches === 'undefined') {
+        return false;
+    }
+
+    try {
+        const cache = await caches.open(BASEMAP_CACHE);
+        const match = await cache.match(PMTILES_URL);
+
+        return match?.status === 200;
+    } catch {
+        return false;
+    }
+}
 
 /** Hapus cache basemap (mis. potongan range parsial yang merusak pmtiles). */
 async function clearBasemapCache(): Promise<void> {
@@ -28,7 +50,7 @@ async function clearBasemapCache(): Promise<void> {
     const keys = await caches.keys();
     await Promise.all(
         keys
-            .filter((key) => key.includes('basemap-pmtiles'))
+            .filter((key) => key.includes(BASEMAP_CACHE))
             .map((key) => caches.delete(key)),
     );
 }
@@ -59,9 +81,11 @@ export default function BasemapLayer() {
                 return;
             }
 
-            // Sudah pernah di-warm: cache memuat file utuh → langsung pakai vektor
-            // (range disajikan SW dari cache, online maupun offline).
-            if (localStorage.getItem(WARMED_KEY) === '1') {
+            // Arsip utuh sudah ada di cache SW (di-warm oleh komponen ini ATAU
+            // oleh lib/offline/sync.ts) → langsung pakai vektor; range disajikan
+            // SW dari cache, online maupun offline. Mengecek isi cache, bukan
+            // flag localStorage, agar tidak melenceng antar jalur warm.
+            if (await isBasemapCached()) {
                 if (!cancelled) {
                     setMode('pmtiles');
                 }
@@ -103,7 +127,6 @@ export default function BasemapLayer() {
                 }
 
                 await full.blob(); // pastikan seluruh isi mengalir → tersimpan SW
-                localStorage.setItem(WARMED_KEY, '1');
 
                 if (!cancelled) {
                     setMode('pmtiles');

@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from 'react';
 
-import { getSyncStatus, subscribeSyncStatus } from '@/lib/offline/sync';
+import {
+    getSyncStatus,
+    getSyncStatusServerSnapshot,
+    subscribeSyncStatus,
+} from '@/lib/offline/sync';
 import type { SyncStatus } from '@/lib/offline/sync';
 
 /**
@@ -11,6 +15,6 @@ export function useSyncStatus(): SyncStatus {
     return useSyncExternalStore(
         subscribeSyncStatus,
         getSyncStatus,
-        getSyncStatus,
+        getSyncStatusServerSnapshot,
     );
 }

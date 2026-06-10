@@ -18,9 +18,10 @@ const THROTTLE_MS = 60 * 60 * 1000;
 
 // Basemap PMTiles vektor offline (lihat BasemapLayer.tsx). Diunduh penuh sekali
 // agar service worker menyimpannya; setelah itu protomaps membaca dari cache.
+// Kesiapan ditentukan dari isi cache SW (bukan flag localStorage) agar selaras
+// dengan BasemapLayer dan tidak melenceng antar jalur warm.
 const BASEMAP_URL = '/tiles/id.pmtiles';
-const BASEMAP_WARMED_KEY = 'pmtiles_warmed';
-const BASEMAP_AVAILABLE_KEY = 'pmtiles_available';
+const BASEMAP_CACHE = 'basemap-pmtiles';
 
 // Graf jaringan laut untuk perute offline (lihat lib/offline/route.ts).
 const MARNET_URL = '/geo/marnet.geojson';
@@ -38,12 +39,18 @@ export interface SyncStatus {
     lastSyncAt: number | null; // epoch ms sinkronisasi sukses terakhir
 }
 
-let status: SyncStatus = {
+// Snapshot awal yang stabil & identik dengan render server (SSR tak punya akses
+// IndexedDB/localStorage, jadi selalu 'idle'). Dipakai sebagai getServerSnapshot
+// agar hidrasi cocok meski `status` sudah dimutasi ke 'done' oleh
+// startOfflineSync sebelum React menghidrasi badge.
+const INITIAL_STATUS: SyncStatus = {
     phase: 'idle',
     done: 0,
     total: FORECAST_DAYS,
     lastSyncAt: null,
 };
+
+let status: SyncStatus = INITIAL_STATUS;
 const statusListeners = new Set<() => void>();
 
 function setStatus(patch: Partial<SyncStatus>): void {
@@ -63,6 +70,15 @@ export function subscribeSyncStatus(cb: () => void): () => void {
 /** Snapshot status terkini (referensi stabil sampai ada perubahan). */
 export function getSyncStatus(): SyncStatus {
     return status;
+}
+
+/**
+ * Snapshot untuk render server (useSyncExternalStore). Selalu mengembalikan
+ * status awal yang stabil agar HTML hasil hidrasi cocok dengan SSR; React lalu
+ * beralih ke getSyncStatus di klien setelah hidrasi.
+ */
+export function getSyncStatusServerSnapshot(): SyncStatus {
+    return INITIAL_STATUS;
 }
 
 function targetDates(): string[] {
@@ -150,15 +166,20 @@ async function syncDate(date: string): Promise<void> {
  * dilindungi flag agar hanya sekali; GET berikutnya dilayani dari cache.
  */
 async function warmBasemap(): Promise<void> {
-    if (typeof localStorage === 'undefined') {
-        return;
-    }
-
-    if (localStorage.getItem(BASEMAP_WARMED_KEY) === '1') {
+    if (typeof caches === 'undefined') {
         return;
     }
 
     try {
+        // Sudah ter-cache penuh (status 200, bukan potongan 206) → tak perlu
+        // unduh ulang 38 MB.
+        const cache = await caches.open(BASEMAP_CACHE);
+        const cached = await cache.match(BASEMAP_URL);
+
+        if (cached?.status === 200) {
+            return;
+        }
+
         const head = await fetch(BASEMAP_URL, { method: 'HEAD' });
 
         if (!head.ok) {
@@ -169,8 +190,6 @@ async function warmBasemap(): Promise<void> {
 
         if (res.ok) {
             await res.blob(); // Pastikan seluruh isi mengalir → tersimpan SW.
-            localStorage.setItem(BASEMAP_WARMED_KEY, '1');
-            localStorage.setItem(BASEMAP_AVAILABLE_KEY, '1');
         }
     } catch {
         // Offline / belum ada — dicoba lagi pada sinkronisasi berikutnya.

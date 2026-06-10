@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const features = [
-    { category: "Analitik Spasial", title: "Pemetaan ZPPI Cerdas", desc: "Lacak titik koordinat kumpul ikan paling potensial secara presisi melalui integrasi data oseanografi satelit. Hemat bahan bakar pelayaran, maksimalkan hasil.", image: "/storage/images/tech-1.png" },
-    { category: "Prediksi & Keamanan", title: "Prakiraan Cuaca", desc: "Pantau pergerakan arah angin, tinggi gelombang, dan arus laut secara real-time. Rencanakan jadwal melaut yang jauh lebih aman dengan tingkat akurasi tinggi.", image: "/storage/images/tech-2.png" },
-    { category: "Keandalan Operasional", title: "Navigasi Mode Offline", desc: "Tetap terhubung dengan peta ZPPI dan rute pelayaran Anda meski berada jauh di tengah samudra tanpa koneksi internet. Navigasi tetap berjalan tanpa interupsi.", image: "/storage/images/tech-3.png" }
+    { category: "Analitik Spasial", title: "Pemetaan ZPPI Cerdas", desc: "Lacak titik koordinat kumpul ikan paling potensial secara presisi melalui integrasi data oseanografi satelit. Hemat bahan bakar pelayaran, maksimalkan hasil.", image: "/tech-1.webp" },
+    { category: "Prediksi & Keamanan", title: "Prakiraan Cuaca", desc: "Pantau pergerakan arah angin, tinggi gelombang, dan arus laut secara real-time. Rencanakan jadwal melaut yang jauh lebih aman dengan tingkat akurasi tinggi.", image: "/tech-2.webp" },
+    { category: "Keandalan Operasional", title: "Navigasi Mode Offline", desc: "Tetap terhubung dengan peta ZPPI dan rute pelayaran Anda meski berada jauh di tengah samudra tanpa koneksi internet. Navigasi tetap berjalan tanpa interupsi.", image: "/tech-3.webp" }
 ];
 
 export default function TechFeatures() {

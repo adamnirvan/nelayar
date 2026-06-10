@@ -254,7 +254,6 @@ export default function MapHeader({
                             <>
                                 <div className="fixed inset-0 z-[1000]" onClick={() => setMenuOpen(false)} />
                                 <div className="glass-panel absolute right-0 z-[1001] mt-2 w-48 overflow-hidden rounded-xl py-1 shadow-xl">
-                                    <Link href="/settings/profile" className="block px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-white/50">Pengaturan Profil</Link>
                                     <button type="button" onClick={handleLogout} className="w-full px-4 py-2.5 text-left text-sm font-bold text-red-600 hover:bg-white/50">Keluar</button>
                                 </div>
                             </>

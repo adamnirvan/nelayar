@@ -54,7 +54,7 @@ export default function Register() {
                 <div
                     className="relative hidden w-full flex-col justify-between overflow-hidden p-12 lg:flex lg:w-[65%]"
                     style={{
-                        backgroundImage: 'url(/vessel_1.jpg)', // Path gambar HD-mu
+                        backgroundImage: 'url(/vessel_1.webp)', // Path gambar HD-mu
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                     }}
