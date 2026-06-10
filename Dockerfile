@@ -148,6 +148,10 @@ FROM nginx:1.27-alpine AS web
 # nginx's own $uri/$query_string are not clobbered.
 ENV NGINX_ENVSUBST_FILTER=^SERVER_NAME$
 COPY docker/nginx/default.conf.template /etc/nginx/templates/default.conf.template
-COPY docker/nginx/10-server-name.envsh /docker-entrypoint.d/10-server-name.envsh
+# Must be executable: the nginx entrypoint SOURCES *.envsh files only when they
+# carry the executable bit (otherwise it logs "Ignoring ... not executable" and
+# SERVER_NAME is never exported, leaving server_name as the literal
+# ${SERVER_NAME} -> every request hits the 444 catch-all -> Cloudflare 520).
+COPY --chmod=0755 docker/nginx/10-server-name.envsh /docker-entrypoint.d/10-server-name.envsh
 # Public dir (incl. built assets) so nginx can serve static files directly.
 COPY --from=app /var/www/html/public /var/www/html/public
