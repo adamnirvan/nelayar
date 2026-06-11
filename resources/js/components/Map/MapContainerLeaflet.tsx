@@ -17,7 +17,7 @@ export default function MapContainerLeaflet({ children }: MapProps) {
             center={[-2.5, 118]}
             zoom={5}
             attributionControl={false}
-            minZoom={4}
+            minZoom={5}
             maxZoom={18}
             maxBounds={indonesiaBounds}
             maxBoundsViscosity={1.0}

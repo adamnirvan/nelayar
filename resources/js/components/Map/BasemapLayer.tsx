@@ -2,6 +2,7 @@ import type L from 'leaflet';
 import { leafletLayer } from 'protomaps-leaflet';
 import { useEffect, useState } from 'react';
 import { TileLayer, useMap } from 'react-leaflet';
+import { cartoVoyagerTheme } from '@/lib/cartoFlavor';
 
 // Basemap PMTiles vektor offline (Indonesia, z0–z10) untuk navigasi rute tanpa
 // internet. pmtiles membaca file via HTTP byte-range. Server statis produksi
@@ -152,10 +153,17 @@ export default function BasemapLayer() {
         // anggota L.Layer — cast agar addTo/removeLayer lolos pemeriksaan tipe.
         // maxZoom wajib (tanpa itu Leaflet melempar "Map has no maxZoom specified");
         // maxDataZoom = batas data (z10), di atasnya peta meng-overzoom vektor.
+        //
+        // paint/label rules kustom (bukan opsi `flavor`) agar PMTiles vektor offline
+        // tampil seperti CARTO Voyager — konsisten dengan fallback raster CARTO.
+        const theme = cartoVoyagerTheme('id');
         const layer = leafletLayer({
             url: PMTILES_URL,
-            flavor: 'light',
+            paintRules: theme.paintRules,
+            labelRules: theme.labelRules,
+            backgroundColor: theme.backgroundColor,
             lang: 'id',
+            minZoom: 5,
             maxZoom: 18,
             maxDataZoom: 10,
         }) as unknown as L.Layer;
