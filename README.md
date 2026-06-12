@@ -29,7 +29,8 @@ An integrated information panel providing in-depth data for any coordinate point
 
 ### 5. Real Sea Routing
 Precision maritime navigation system utilizing Searoutes API integration to determine the safest and most fuel-efficient vessel routes.
-> <img width="2880" height="1556" alt="Nelayar-06-12-2026_07_15_PM (1)" src="https://github.com/user-attachments/assets/6ad4129b-3a8e-4b7c-95b7-5e3cb693a9f5" />
+> <img width="2880" height="1556" alt="Nelayar-06-12-2026_07_27_PM" src="https://github.com/user-attachments/assets/74ea4851-bf9a-4455-bc22-805cae05189c" />
+
 
 ### 6. Offline Mode (PWA)
 Powered by Progressive Web App (PWA) technology and advanced caching, the application remains functional offline. Fishermen can access base maps, saved routes, and the latest forecast data without an internet connection in the middle of the ocean.
