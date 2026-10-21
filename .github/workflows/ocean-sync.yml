@@ -22,8 +22,7 @@ name: ocean-sync
 
 on:
   schedule:
-    # 19:00 UTC = 02:00 WIB (Asia/Jakarta) — samakan dengan jadwal lama server
-    - cron: '0 19 * * *'
+    - cron: '0 * * * *'
   workflow_dispatch: {}
 
 concurrency:

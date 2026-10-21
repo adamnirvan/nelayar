@@ -1,9 +1,9 @@
-import { formatEta, formatRupiah, useNavigation } from './NavigationContext';
+import { formatEta, useNavigation } from './NavigationContext';
 
 // Banner mengambang yang menandakan perjalanan sedang berlangsung (mode PWA on-going).
 // Tetap tampil walau sidebar zona ditutup, sehingga nelayan selalu melihat status navigasi.
 export default function NavigationBanner() {
-    const { status, distanceKm, etaHours, fuelEstimate, cancelNavigation } =
+    const { status, remainingKm, remainingEtaHours, cancelNavigation } =
         useNavigation();
 
     if (status !== 'active') {
@@ -26,12 +26,12 @@ export default function NavigationBanner() {
                     </span>
                     <div className="flex items-center gap-3 text-sm font-bold text-gray-800">
                         <span>
-                            {distanceKm != null
-                                ? `${distanceKm.toFixed(1)} km`
+                            {remainingKm != null
+                                ? `${remainingKm.toFixed(1)} km lagi`
                                 : '—'}
                         </span>
                         <span className="text-gray-300">•</span>
-                        <span>ETA {formatEta(etaHours)}</span>
+                        <span>ETA {formatEta(remainingEtaHours)}</span>
                     </div>
                 </div>
 

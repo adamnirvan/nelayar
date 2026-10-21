@@ -41,10 +41,10 @@ export default defineConfig({
                 description:
                     'Peta zona potensi ikan, cuaca, dan rute laut untuk nelayan — dapat dipakai tanpa internet.',
                 lang: 'id',
-                start_url: '/',
+                start_url: '/map',
                 scope: '/',
                 display: 'standalone',
-                orientation: 'portrait',
+                orientation: 'landscape',
                 background_color: '#ffffff',
                 theme_color: '#0f172a',
                 icons: [

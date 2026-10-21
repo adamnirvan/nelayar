@@ -25,6 +25,86 @@ export function haversineKm(a: LatLngLike, b: LatLngLike): number {
     return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
 }
 
+export interface RouteProjection {
+    // Jarak terdekat (km) dari `current` ke garis rute — seberapa jauh menyimpang.
+    deviationKm: number;
+    // Sisa jarak (km) sepanjang rute dari titik proyeksi terdekat hingga ujung rute.
+    remainingKm: number;
+}
+
+// Proyeksikan sebuah titik ke polyline rute: cari titik terdekat di rute, lalu
+// kembalikan jarak simpang (deviationKm) dan sisa jarak hingga ujung (remainingKm).
+// Dipakai saat navigasi berlangsung untuk (a) banner yang menghitung mundur jarak
+// seiring perahu bergerak dan (b) deteksi menyimpang untuk perhitungan ulang rute.
+// `coords` adalah koordinat LineString [lng, lat].
+export function projectOntoRoute(
+    coords: number[][],
+    current: LatLngLike,
+): RouteProjection {
+    if (!coords || coords.length < 2) {
+        return { deviationKm: 0, remainingKm: 0 };
+    }
+
+    // Proyeksi equirektangular lokal (skala lng dengan cos lintang) — cukup akurat
+    // untuk mencari segmen & titik terdekat pada jarak pendek antar simpul rute.
+    const cosLat = Math.cos((current.lat * Math.PI) / 180);
+    const toXY = (lng: number, lat: number) => ({ x: lng * cosLat, y: lat });
+    const cur = toXY(current.lng, current.lat);
+
+    let bestDistSq = Infinity;
+    let bestIdx = 0;
+    let bestT = 0;
+
+    for (let i = 0; i < coords.length - 1; i++) {
+        const a = toXY(coords[i][0], coords[i][1]);
+        const b = toXY(coords[i + 1][0], coords[i + 1][1]);
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const segLenSq = dx * dx + dy * dy;
+        const t =
+            segLenSq === 0
+                ? 0
+                : Math.max(
+                      0,
+                      Math.min(
+                          1,
+                          ((cur.x - a.x) * dx + (cur.y - a.y) * dy) / segLenSq,
+                      ),
+                  );
+        const px = a.x + dx * t;
+        const py = a.y + dy * t;
+        const distSq = (cur.x - px) ** 2 + (cur.y - py) ** 2;
+
+        if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            bestIdx = i;
+            bestT = t;
+        }
+    }
+
+    // Titik proyeksi pada segmen terdekat (interpolasi lat/lng linear memadai
+    // untuk segmen pendek), lalu jumlahkan jarak haversine hingga ujung rute.
+    const [aLng, aLat] = coords[bestIdx];
+    const [bLng, bLat] = coords[bestIdx + 1];
+    const proj = {
+        lat: aLat + (bLat - aLat) * bestT,
+        lng: aLng + (bLng - aLng) * bestT,
+    };
+
+    const deviationKm = haversineKm(proj, current);
+
+    let remainingKm = haversineKm(proj, { lat: bLat, lng: bLng });
+
+    for (let i = bestIdx + 1; i < coords.length - 1; i++) {
+        remainingKm += haversineKm(
+            { lat: coords[i][1], lng: coords[i][0] },
+            { lat: coords[i + 1][1], lng: coords[i + 1][0] },
+        );
+    }
+
+    return { deviationKm, remainingKm };
+}
+
 export interface NearbyResult {
     // Radius akhir yang dipakai (km). Mulai dari `minKm`; bila tidak ada titik
     // sedekat itu, melebar pas hingga mencapai titik terdekat — dibatasi `maxKm`.
