@@ -39,6 +39,16 @@ Powered by Progressive Web App (PWA) technology and advanced caching, the applic
 Real-time tracking of marine commodity price fluctuations, which can be filtered by fish species and local fish auction locations.
 > <img width="2880" height="3860" alt="Dashboard-Harga-Ikan-Nelayar-06-11-2026_11_06_PM" src="https://github.com/user-attachments/assets/801a0bee-20eb-42ac-960c-d1bbf079d8de" />
 
+## Datasets
+
+**CMEMS SST & CHL-A**
+https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_PHY_001_024/description
+>
+https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_BGC_001_028/description
+
+**Fish Prices**
+https://mi.kkp.go.id
+
 ## 🛠️ Built With
 
 **Framework & Backend**  

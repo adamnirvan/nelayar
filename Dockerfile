@@ -106,16 +106,21 @@ COPY --from=assets /app/public ./public
 # --- Python microservice venv at the path PYTHON_PATH expects ---
 # OceanService / FishPriceService / RouteService all resolve
 # `microservice/.venv/bin/python` correctly (relative to project root).
-# Runtime only runs route_sea.py (searoute -> geojson + networkx) and
-# scrape_kkp.py (requests). The heavy ZPPI stack (numpy/scipy/matplotlib/
-# rasterio/copernicusmarine) is deliberately NOT installed here — that compute
-# runs on GitHub Actions, not on this box. Installing it would re-introduce the
-# build's RAM/time blowup for code this container never executes.
-RUN python3 -m venv microservice/.venv \
-    && microservice/.venv/bin/pip install --no-cache-dir --upgrade pip \
-    && microservice/.venv/bin/pip install --no-cache-dir \
-        searoute \
-        requests
+# Use uv so the image follows microservice/pyproject.toml + uv.lock instead
+# of keeping a handwritten pip install list in the Dockerfile.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# uv-managed CPython defaults to /root/.local/share/uv/python, which is 0700
+# and unreadable by www-data at runtime. Point it somewhere world-traversable
+# instead, so .venv/bin/python (kept as a symlink) can still resolve its
+# stdlib via CPython's relative landmark-file lookup (../lib/python3.12).
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+
+RUN mkdir -p /opt/uv/python \
+    && cd microservice \
+    && uv python install 3.12 \
+    && uv sync --frozen --no-dev --no-install-project --python 3.12 \
+    && chmod -R a+rX /opt/uv/python
 
 # --- Ensure Laravel's writable dirs exist, then fix permissions ---
 RUN mkdir -p \

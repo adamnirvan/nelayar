@@ -111,6 +111,13 @@ class FishProfileSeeder extends Seeder
             ],
         ];
 
+        // Bulk inserts require every row to contain the same columns. These
+        // fields are nullable for species that do not use chlorophyll data.
+        $fishes = array_map(static fn (array $fish): array => array_merge([
+            'chl_min' => null,
+            'chl_max' => null,
+        ], $fish), $fishes);
+
         // Bersihkan tabel dulu jika di-seed ulang agar tidak error duplikat
         DB::table('fish_profiles')->truncate();
         DB::table('fish_profiles')->insert($fishes);

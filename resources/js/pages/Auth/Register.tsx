@@ -159,7 +159,7 @@ export default function Register() {
                                         type={showPassword ? 'text' : 'password'}
                                         value={data.password}
                                         onChange={(e) => setData((d) => ({ ...d, password: e.target.value }))}
-                                        placeholder="Minimal 8 karakter"
+                                        placeholder="Minimal 12 karakter, kombinasi huruf, angka, dan simbol"
                                         className="w-full rounded-xl border border-gray-100 bg-gray-50 py-3 pl-12 pr-12 text-sm text-gray-900 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-400/10 [&:autofill]:shadow-[inset_0_0_0px_1000px_#f9fafb] [&:autofill]:[-webkit-text-fill-color:#111827] transition-colors duration-200"
                                         required
                                         autoComplete="new-password"

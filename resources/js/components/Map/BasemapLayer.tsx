@@ -166,10 +166,30 @@ export default function BasemapLayer() {
             minZoom: 5,
             maxZoom: 18,
             maxDataZoom: 10,
-        }) as unknown as L.Layer;
+        }) as unknown as L.GridLayer;
         layer.addTo(map);
 
+        // Re-anchor poligon/marker vs basemap setelah animasi zoom.
+        //
+        // leafletLayer adalah L.GridLayer berbasis canvas. Saat `flyTo`/`flyToBounds`
+        // (search, tombol lokasi, klik zona), petak yang dibuat DI TENGAH animasi zoom
+        // memegang posisi origin yang sudah usang; `moveend` hanya melakukan _update
+        // parsial (tidak menata ulang petak lama), sehingga basemap tampak bergeser
+        // konstan dari layer data sampai zoom berikutnya. `redraw()` membuang & menata
+        // ulang semua petak pada pixel-origin terkini — meniru perbaikan yang terjadi
+        // saat zoom manual. Hanya dipanggil saat level zoom benar-benar berubah (geser
+        // murni tak menyebabkan desync) agar tidak berkedip saat pan biasa. Ditunda satu
+        // frame supaya berjalan setelah penanganan zoomend internal GridLayer selesai.
+        let raf = 0;
+        const realign = () => {
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => layer.redraw());
+        };
+        map.on('zoomend', realign);
+
         return () => {
+            cancelAnimationFrame(raf);
+            map.off('zoomend', realign);
             map.removeLayer(layer);
         };
     }, [mode, map]);

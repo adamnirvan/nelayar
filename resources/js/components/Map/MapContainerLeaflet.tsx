@@ -6,10 +6,12 @@ import BasemapLayer from './BasemapLayer';
 type MapProps = { children?: React.ReactNode };
 
 export default function MapContainerLeaflet({ children }: MapProps) {
-    // Batas area khusus Indonesia
+    // Batas area khusus Indonesia, diberi margin agar titik di tepi peta
+    // tetap bisa di-geser ke tengah viewport (tidak tertahan di pinggir/tertutup UI)
+    const margin = 3.0; // derajat
     const indonesiaBounds: [[number, number], [number, number]] = [
-        [-11.0, 95.0],
-        [6.0, 141.0],
+        [-11.0 - margin, 95.0 - margin],
+        [6.0 + margin, 141.0 + margin],
     ];
 
     return (
@@ -20,7 +22,7 @@ export default function MapContainerLeaflet({ children }: MapProps) {
             minZoom={5}
             maxZoom={18}
             maxBounds={indonesiaBounds}
-            maxBoundsViscosity={1.0}
+            maxBoundsViscosity={0.8}
             zoomControl={false} // Default top-left bertabrakan dengan header; dipindah ke bawah-kanan
             style={{ height: '100vh', width: '100%', zIndex: 0 }}
         >
