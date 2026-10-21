@@ -1,5 +1,5 @@
 import { Link, router, Head } from '@inertiajs/react';
-import axios from 'axios';
+import axios from 'axios'; //sender type user react ke backend
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
